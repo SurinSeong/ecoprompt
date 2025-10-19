@@ -40,3 +40,5 @@ pip3 install -U jupyterlab ipykernel
 # jupyterlab 포트 설정 및 실행
 jupyter lab --no-browser --ip=0.0.0.0 --port=8890
 ```
+
+5. vllm 이용해서 gguf 모델 사용하기
