@@ -32,7 +32,8 @@ RUN uv pip install \
     datasets==4.1.1 \
     matplotlib \
     math-verify \
-    gensim
+    gensim \
+    qdrant-client
 
 # 컨테이너 포트
 EXPOSE 8000
