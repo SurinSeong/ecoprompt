@@ -19,13 +19,15 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     python3.12 \
     python3.12-venv && \ 
+    # uv 설치
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    # uv 실행 파일을 PATH에 등록된 위치로 이동
+    mv /root/.cargo/bin/uv /usr/local/bin/uv && \
+    # apt 캐시 정리
     rm -rf /var/lib/apt/lists/*
 
-# uv 설치
-ENV PATH="/root/.cargo/bin:$PATH"
-
 # 필수 패키지 설치 - uv
-RUN pip install \
+RUN uv pip install \
     fastapi \
     vllm==0.10.2 \
     datasets==4.1.1 \
