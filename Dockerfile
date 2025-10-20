@@ -23,10 +23,9 @@ RUN apt-get update && \
 
 # uv 설치
 ENV PATH="/root/.cargo/bin:$PATH"
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 필수 패키지 설치 - uv
-RUN uv pip install \
+RUN pip install \
     fastapi \
     vllm==0.10.2 \
     datasets==4.1.1 \
