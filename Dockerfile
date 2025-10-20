@@ -2,23 +2,32 @@ FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
 
 # 사전 폴더 구축하기
 WORKDIR /app
+COPY . /app
 RUN mkdir -p model
 
-# 파이썬 환경 설정
+# 파이썬 환경 설정 - uv 설치에 필요한 curl을 추가하고, 기존의 python3-pip 대신 uv 설치를 준비합니다.
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     wget \
-    python3-pip \
+    curl \
     python3.12-venv && \
     rm -rf /var/lib/apt/lists/*
 
-# 필수 패키지 설치
-RUN pip3 install --no-cache-dir --upgrade pip && \ 
-    pip3 install --no-cache-dir \
+# uv 설치
+ENV PATH="/root/.cargo/bin:$PATH"
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 필수 패키지 설치 - uv
+RUN uv pip install \
+    fastapi \
     vllm==0.10.2 \
     datasets==4.1.1 \
     matplotlib \
     math-verify \
     gensim
 
-CMD [ "/bin/bash" ]
+# 컨테이너 포트
+EXPOSE 8000
+
+# 컨테이너 시작하기
+CMD [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000" ]
