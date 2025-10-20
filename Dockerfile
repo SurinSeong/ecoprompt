@@ -10,7 +10,15 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     wget \
     curl \
-    python3.12-venv && \
+    # PPA 추가를 위한 패키지
+    software-properties-common && \ 
+    # deadsnakes PPA 추가
+    add-apt-repository ppa:deadsnakes/ppa -y && \
+    apt-get update && \
+    # Python 3.12 핵심 패키지 및 venv 모듈 설치
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-venv && \ 
     rm -rf /var/lib/apt/lists/*
 
 # uv 설치
