@@ -5,28 +5,41 @@
 ## 프로젝트 구조
 
 ```
+[api]    →  [schemas]   →  [services]   →  [core / model]
+엔드포인트   데이터검증       비즈니스로직       환경설정 / 추론
+
 llm/
-├── llama.cpp/                     # 양자화
-├── app/                           # 메인 애플리케이션 패키지
-│   ├── api/                       # API 엔드포인트
-│   │   └── v1/                    # API v1 버전
-│   │       ├── endpoints/         # API 엔드포인트 구현
-│   │       │   ├── 
-│   │       └── 
-│   ├── core/                      # 설정, 보안, 유틸성 모듈
-│   │   ├── config.py              # 환경 변수 로드, 전역 설정
-│   │   └── 
-│   ├── schemas/                   # 스키마 모음
-│   │   └── 
-│   ├── services/                  # 비즈니스 로직 서비스
-│   │   └── 
-├── tests/                         # 테스트 코드
-│   └── test_ai.py                 # AI API 테스트
+├── llama.cpp/                              
+├── app/                                    # 메인 애플리케이션 패키지
+│   ├── api/                                # API 엔드포인트
+│   │   └── v1/                             # API v1 버전
+│   │       ├── endpoints/                  # API 엔드포인트 구현
+│   │       │   ├── llm.py
+│   │       │   ├── health.py
+│   │       │   └── ...
+│   │       └── routers.py
+│   ├── core/                               # 설정, 보안, 유틸성 모듈
+│   │   ├── config.py                       # 환경 변수 로드, 전역 설정
+│   │   └── celery_app.py                   # 비동기
+│   ├── schemas/                            # Pydantic 스키마 모음
+│   │   ├── llm_request.py                  # 요청 데이터 구조
+│   │   └── llm_response.py                 # 응답 데이터 구조
+│   └── services/                           # 비즈니스 로직, 모델 추론 로직
+│       ├── llm_service.py
+│       └── model_loader.py
+│
+├── models/                                 # 사용할 모델
+│   └── Llama-3.1-Korean-8B-Instruct/       
+│
+├── training/                               # LLM 학습 관련
+│   └── fine_tuning.py                
+├── tests/                                  # 테스트 코드
+│   └── test_inference.py                   # LLM 추론 테스트
 │ 
-├── main.py                        # 애플리케이션 진입점
-├── pyproject.toml                 # Python 의존성 패키지
-├── env.example                    # 환경 변수 설정 예시
-└── README.md                      # 프로젝트 문서
+├── main.py                                 # FastAPI 애플리케이션 엔트리포인트
+├── pyproject.toml                          # Python 의존성 패키지
+├── env.example                             # 환경 변수 설정 예시
+└── README.md                               # 프로젝트 문서
 ```
 
 ## 환경설정
