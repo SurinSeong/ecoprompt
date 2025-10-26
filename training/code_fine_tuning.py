@@ -1,4 +1,5 @@
 import random
+import wandb
 
 SEED = 42
 
@@ -53,7 +54,7 @@ from trl import SFTTrainer
 BASE_MODEL = "./models/Llama-3.1-Korean-8B-Instruct"
 
 # 토크나이저 설정
-tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, add_special_tokens=True, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, use_fast=True, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 tokenizer.padding_side = "right"
 
@@ -103,7 +104,6 @@ train_data = train_dataset.map(lambda samples: tokenizer(samples["text"]), batch
 valid_data = valid_dataset.map(lambda samples: tokenizer(samples["text"]), batched=True)
 
 
-
 # LoRA 설정
 from peft import LoraConfig
 
@@ -114,7 +114,7 @@ lora_config = LoraConfig(
     target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],    # LoRA 적용 대상 모듈
     lora_dropout=0.05,   # 드롭아웃 비율
     bias="none",     # LoRA에서 bias 사용 여부
-    task_type="CASUAL_LM"    # LLM 파인튜닝을 위한 Casual Language Model 설정
+    task_type="CAUSAL_LM"    # LLM 파인튜닝을 위한 Causal Language Model 설정
 )
 
 # MAX SEQ LENGTH
@@ -146,7 +146,6 @@ train_args = TrainingArguments(
     warmup_ratio=0.1,
     optim="adamw_torch",
     seed=SEED,
-    output_dir="",
     logging_steps=10,
     eval_strategy="steps",
     eval_steps=50,
@@ -154,20 +153,36 @@ train_args = TrainingArguments(
     report_to="wandb"
 )
 
-
 # Trainer Setup
 trainer = SFTTrainer(
     model=model,
     peft_config=lora_config,
-    tokenizer=tokenizer,
+    # tokenizer=tokenizer,
     train_dataset=train_data,
     eval_dataset=valid_data,
     args=train_args,
-    max_seq_length=MAX_SEQ_LENGTH,
-    packing=False
+    # max_seq_length=MAX_SEQ_LENGTH,
+    # packing=False
 )
 
 model.config.use_cache = False
+
+# wandb 설정
+wandb_config = {
+    "model": BASE_MODEL.split("/")[-1],
+    "learning_rate": 1e-4,
+    "epochs": 5,
+    "batch_size": 8,
+    "lora_r": 16,
+    "dataset": "CodeAlpaca + CodeSearchNet"
+}
+
+wandb.init(
+    project="ecoprompt",
+    entity="surinseong-ai",
+    name="code_lora_1",
+    config=wandb_config
+)
 
 # 학습 시작
 print("Start Training..")
@@ -175,6 +190,8 @@ trainer.train()
 
 model.eval()    # 모델의 가중치는 변경하지 않고, forward 연산만 수행한다.
 model.config.use_cache = True    # 이전 계산 결과를 저장하고 사용한다. => 추론속도 빨라짐, 메모리 사용 증가
+
+wandb.finish()
 
 # LoRA 어댑터/토크나이저 저장
 print("LoRA 어댑터 저장")

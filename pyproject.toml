@@ -19,4 +19,5 @@ dependencies = [
     "qdrant-client>=1.15.1",
     "trl>=0.24.0",
     "vllm==0.10.2",
+    "wandb>=0.22.2",
 ]

@@ -76,6 +76,9 @@ uv add fastapi vllm==0.10.2 datasets==4.1.1 matplotlib math-verify genism qdrant
 
 # 파인튜닝용 라이브러리 설치
 uv add accelerate peft bitsandbytes trl
+
+# 모델 학습 트래킹을 위한 라이브러리 설치
+uv add wandb
 ```
 
 3. llama.cpp 설치
@@ -106,4 +109,8 @@ uv run app/services/model_download.py
 5. 파인튜닝용 데이터셋
 
 - LoRA 파인튜닝을 위한 데이터셋을 `data` 폴더에 담는다.
+
+6. 학습 과정 트래킹
+
+- `wandb login` 후, API_KEY 설정한다.
 
