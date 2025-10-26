@@ -138,7 +138,7 @@ train_args = TrainingArguments(
     gradient_checkpointing=True,    # 활성화하면, GPU 메모리 사용감소 가능, 수행시간은 더 걸린다.
     num_train_epochs=5,    # 전체 데이터셋을 몇 번 반복해서 학습할 것인가
     warmup_steps=30,    # 학습률을 서서히 증가시키는 단계 (0 ~ 100)
-    max_steps=300,    # 최대 학습 스텝
+    max_steps=-1,    # 최대 학습 스텝 (-1: 조기종료 막기)
     learning_rate=1e-4,    # 학습률
     lr_scheduler_type="linear",    # 학습률 스케쥴러
     weight_decay=0.01,
@@ -181,12 +181,16 @@ wandb.init(
     project="ecoprompt",
     entity="surinseong-ai",
     name="code_lora_1",
-    config=wandb_config
+    config=wandb_config,
+    resume=True    # 재시작
 )
 
 # 학습 시작
 print("Start Training..")
-trainer.train()
+# trainer.train()
+# 학습 재시작 하기
+resume_checkpoint = "./trainer_output/checkpoint-300"
+trainer.train(resume_from_checkpoint=resume_checkpoint)
 
 model.eval()    # 모델의 가중치는 변경하지 않고, forward 연산만 수행한다.
 model.config.use_cache = True    # 이전 계산 결과를 저장하고 사용한다. => 추론속도 빨라짐, 메모리 사용 증가
