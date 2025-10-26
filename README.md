@@ -29,7 +29,11 @@ llm/
 │       └── model_loader.py
 │
 ├── models/                                 # 사용할 모델
-│   └── Llama-3.1-Korean-8B-Instruct/       
+│   └── Llama-3.1-Korean-8B-Instruct/
+│
+├── data/                                   # 학습에 사용할 데이터 
+│   ├── code_data/                          # 코딩 파인튜닝 관련
+│   └── qa_data/                            # 사용자 질의응답 관련
 │
 ├── training/                               # LLM 학습 관련
 │   └── fine_tuning.py                
@@ -69,7 +73,9 @@ source .venv/Scripts/activate
 
 # 필수 라이브러리 설치
 uv add fastapi vllm==0.10.2 datasets==4.1.1 matplotlib math-verify genism qdrant-client langchain langchain-community langchain-core
-uv add accelerate
+
+# 파인튜닝용 라이브러리 설치
+uv add accelerate peft bitsandbytes trl
 ```
 
 3. llama.cpp 설치
@@ -92,4 +98,12 @@ apt-get install -y libcurl4-openssl-dev pkg-config
 4. 원하는 모델 설치
 
 - Huggingface에서 원하는 모델을 찾아 app/services/model_download.py를 통해 설치한다.
+
+```bash
+uv run app/services/model_download.py
+```
+
+5. 파인튜닝용 데이터셋
+
+- LoRA 파인튜닝을 위한 데이터셋을 `data` 폴더에 담는다.
 
