@@ -14,27 +14,30 @@ llm/
 │   ├── api/                                # API 엔드포인트
 │   │   └── v1/                             # API v1 버전
 │   │       ├── endpoints/                  # API 엔드포인트 구현
-│   │       │   ├── llm.py
-│   │       │   ├── health.py
+│   │       │   ├── chat.py
+│   │       │   ├── train.py
+│   │       │   ├── evaluate.py
 │   │       │   └── ...
 │   │       └── routers.py
 │   ├── core/                               # 설정, 보안, 유틸성 모듈
 │   │   ├── config.py                       # 환경 변수 로드, 전역 설정
 │   │   └── celery_app.py                   # 비동기
 │   ├── schemas/                            # Pydantic 스키마 모음
-│   │   ├── llm_request.py                  # 요청 데이터 구조
-│   │   └── llm_response.py                 # 응답 데이터 구조
+│   │   ├── chat.py                        
+│   │   └── ...              
 │   └── services/                           # 비즈니스 로직, 모델 추론 로직
-│       ├── llm_service.py
-│       └── model_loader.py
+│       ├── chat.py
+│       ├── train.py
+│       ├── evaluate.py
+│       ├── model_download.py
+│       └── load_dpo_datasets.py
 │
 ├── models/                                 # 사용할 모델
 │   ├── Llama-3.1-Korean-8B-Instruct/
-│   ├──
+│   └── Llama-SSAFY-8B/                     # 실제 서비스에 사용될 모델
 │
 ├── data/                                   # 학습에 사용할 데이터 
-│   ├── code_data/                          # 코딩 파인튜닝 관련
-│   └── qa_data/                            # 사용자 질의응답 관련
+│   └── code_data/                          # 코딩 파인튜닝 관련
 │
 ├── training/                               # LLM 학습 관련
 │   └── fine_tuning.py                
