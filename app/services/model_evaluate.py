@@ -1,6 +1,7 @@
 from lm_eval.api.model import LM
 from lm_eval.api.registry import register_model
 
+# 학습된 모델 성능평가 클래스
 @register_model("")
 class LlamaKoreanLM(LM):
 
