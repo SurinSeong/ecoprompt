@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12.3"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'linux'",
@@ -670,6 +670,7 @@ dependencies = [
     { name = "math-verify" },
     { name = "matplotlib" },
     { name = "peft" },
+    { name = "pydantic-settings" },
     { name = "qdrant-client" },
     { name = "trl" },
     { name = "vllm" },
@@ -689,6 +690,7 @@ requires-dist = [
     { name = "math-verify", specifier = ">=0.8.0" },
     { name = "matplotlib", specifier = ">=3.10.7" },
     { name = "peft", specifier = ">=0.17.1" },
+    { name = "pydantic-settings", specifier = ">=2.11.0" },
     { name = "qdrant-client", specifier = ">=1.15.1" },
     { name = "trl", specifier = ">=0.24.0" },
     { name = "vllm", specifier = "==0.10.2" },

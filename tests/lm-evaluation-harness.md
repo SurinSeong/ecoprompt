@@ -10,7 +10,7 @@ git clone https://github.com/EleutherAI/lm-evaluation-harness
 cd lm-evaluation-harness
 
 # Harness에서 사용하는 의존성 패키지 설치
-pip install -e .
+uv pip install -e .
 ```
 
 - 설치 완료 후 lm_eval 명령어로 Harness 실행 가능!

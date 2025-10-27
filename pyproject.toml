@@ -16,6 +16,7 @@ dependencies = [
     "math-verify>=0.8.0",
     "matplotlib>=3.10.7",
     "peft>=0.17.1",
+    "pydantic-settings>=2.11.0",
     "qdrant-client>=1.15.1",
     "trl>=0.24.0",
     "vllm==0.10.2",

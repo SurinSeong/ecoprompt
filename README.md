@@ -6,7 +6,7 @@
 
 ```
 [api]    →  [schemas]   →  [services]   →  [core / model]
-엔드포인트   데이터검증       비즈니스로직       환경설정 / 추론
+엔드포인트    데이터검증      비즈니스 로직      환경설정 / 추론
 
 llm/
 ├── llama.cpp/                              
@@ -29,7 +29,8 @@ llm/
 │       └── model_loader.py
 │
 ├── models/                                 # 사용할 모델
-│   └── Llama-3.1-Korean-8B-Instruct/
+│   ├── Llama-3.1-Korean-8B-Instruct/
+│   ├──
 │
 ├── data/                                   # 학습에 사용할 데이터 
 │   ├── code_data/                          # 코딩 파인튜닝 관련
@@ -114,3 +115,12 @@ uv run app/services/model_download.py
 
 - `wandb login` 후, API_KEY 설정한다.
 
+7. 성능 평가를 위한 `lm-evaluation-harness` repo clone
+
+- `./tests/lm-evaluation-harness` 확인
+
+## 프로젝트 시작
+
+```bash
+uvicorn main:app --reload
+```
