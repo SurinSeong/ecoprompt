@@ -1,5 +1,7 @@
 import random
 import wandb
+import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 SEED = 42
 
@@ -136,10 +138,10 @@ train_args = TrainingArguments(
     per_device_train_batch_size=8,    # 배치 크기 (GPU 당 샘플 개수)
     gradient_accumulation_steps=4,    # 메모리 최적화 gradient accumulation 누적 스텝
     gradient_checkpointing=True,    # 활성화하면, GPU 메모리 사용감소 가능, 수행시간은 더 걸린다.
-    num_train_epochs=5,    # 전체 데이터셋을 몇 번 반복해서 학습할 것인가
+    num_train_epochs=3,    # 전체 데이터셋을 몇 번 반복해서 학습할 것인가
     warmup_steps=30,    # 학습률을 서서히 증가시키는 단계 (0 ~ 100)
     max_steps=-1,    # 최대 학습 스텝 (-1: 조기종료 막기)
-    learning_rate=1e-4,    # 학습률
+    learning_rate=5e-5,    # 학습률
     lr_scheduler_type="linear",    # 학습률 스케쥴러
     weight_decay=0.01,
     bf16=True,
@@ -189,7 +191,7 @@ wandb.init(
 print("Start Training..")
 # trainer.train()
 # 학습 재시작 하기
-resume_checkpoint = "./trainer_output/checkpoint-300"
+resume_checkpoint = "./trainer_output/checkpoint-2002"
 trainer.train(resume_from_checkpoint=resume_checkpoint)
 
 model.eval()    # 모델의 가중치는 변경하지 않고, forward 연산만 수행한다.
