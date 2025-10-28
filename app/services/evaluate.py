@@ -11,12 +11,12 @@ if base_settings.model_path:
     last_model = base_settings.model_path + "/" + os.listdir(base_settings.model_path)[-1]
     
 
-def evaluate_model(model_path):
+def evaluate_model(last_model):
     
     # 평가 실행
     results = evaluator.simple_evaluate(
         model=evaluate_settings.eval_model,
-        model_args=f"pretrained={model_path},trust_remote_code=True",
+        model_args=f"pretrained={last_model},trust_remote_code=True",
         tasks=evaluate_settings.eval_tasks,
         num_fewshot=evaluate_settings.eval_num_fewshot,
         seed=evaluate_settings.eval_seed,
@@ -29,4 +29,10 @@ def evaluate_model(model_path):
     # 결과 출력
     print(evaluator.make_table(results))
 
-    return results
+    # 결과 저장
+    with open(f"{evaluate_settings.eval_output_path}/{evaluate_settings.eval_tasks}-results.json", "w") as f:
+        json.dump(results, f, indent=4, ensure_ascii=False)
+    
+    print("[COMPLETED] 평가 결과 저장 완료.")
+
+    return True

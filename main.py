@@ -3,7 +3,7 @@ from app.api.v1.routers import api_router
 
 # 1. FastAPI 인스턴스 생성
 app = FastAPI(
-    title="Ecoprompt",
+    title="Ecoprompt Main LLM",
     description="API Documentation",
     version="1.0.0"
 )
@@ -17,4 +17,4 @@ def read_root():
     return {"message": "Hello, FastAPI"}
 
 # 라우터 연결
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix="/api/v1/ai")

@@ -14,7 +14,7 @@ alpaca_dataset = load_dataset("json", data_files=data_path + "/alpaca_total.json
 searchnet_dataset = load_dataset("json", data_files=data_path + "/code_search_net_total.jsonl")
 
 # code search net 데이터셋 줄이기
-num_samples = 20000
+num_samples = 30000 # total dataset의 데이터개수를 5만개로 설정하기 위해
 indices = random.sample(range(len(searchnet_dataset["train"])), num_samples)
 searchnet_dataset = searchnet_dataset["train"].select(indices)
 
@@ -163,7 +163,7 @@ trainer = SFTTrainer(
     train_dataset=train_data,
     eval_dataset=valid_data,
     args=train_args,
-    # max_seq_length=MAX_SEQ_LENGTH,
+    max_seq_length=MAX_SEQ_LENGTH,
     # packing=False
 )
 

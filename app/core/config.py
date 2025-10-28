@@ -1,22 +1,34 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 from typing import Optional
 
 SEED = 42
 
 class TotalSettings(BaseSettings):
     # DPO 파인튜닝한 모델 저장 폴더
-    model_path: str = "./models/Llama-SSAFY-8B"
+    base_model: str = "./models/Llama-SSAFY-8B"
+
+# wandb 관련
+class WandbSettings(BaseSettings):
+    project: str = "ecoprompt"
+    entity: str = "surinseong-ai"
+    
 
 # 학습 관련
 class TrainSettings(BaseSettings):
-    output_dir: str = ""
-    learning_rate: float = 1e-6
-    optimizer: str = "adamw"
-    warmup_ratio: float = 0.1
+    # training arguments
+    per_device_train_batch_size: int = 1
+    gradient_accumulation_steps: int = 16
+    gradient_checkpointing: bool = True
+    learning_rate: float = 5e-6
+    optimizer: str = "adamw_torch"
+    warmup_ratio: float = 0.05
     lr_scheduler_type: str = "cosine"
-    dpo_beta: float = 0.25
-    
 
+    # DPO
+    dpo_beta: float = 0.1
+    max_prompt_length: int = 512
+    max_length: int = 2048
+    
 
 # 평가 관련
 class EvaluateSettings(BaseSettings):
@@ -34,5 +46,6 @@ class EvaluateSettings(BaseSettings):
         env_file = ".env"    # 환경변수 파일 경로
 
 base_settings = TotalSettings()
+wandb_settings = WandbSettings()
 train_settings = TrainSettings()
 evaluate_settings = EvaluateSettings()

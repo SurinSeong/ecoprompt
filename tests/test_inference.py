@@ -7,13 +7,13 @@ llm = LLM(
     trust_remote_code=True,
     dtype="auto",
     max_model_len=4096,
-    gpu_memory_utilization=0.8
+    gpu_memory_utilization=0.75
 )
 
 sampling_params = SamplingParams(
     temperature=0.6,
     top_p=0.95,
-    max_tokens=2048
+    max_tokens=4096
 )
 
 def chat(instruction):
