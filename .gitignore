@@ -1,1 +1,8 @@
 .gemini
+.env
+
+__pycache__/
+
+data/
+lm-evaluation-harness/
+models/
