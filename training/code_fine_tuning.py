@@ -68,10 +68,16 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 
 # Llama 3.1 chat template 적용하기 => mLA 파일 확인하기
-chat_template = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
-{SYSTEM}<|eot_id|><|start_header_id|>user<|end_header_id|>
-{INPUT}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
-{OUTPUT}<|eot_id|>"""
+chat_template = """<|begin_of_text|>
+<|start_header_id|>system<|end_header_id|>
+{SYSTEM}
+<|eot_id|>
+<|start_header_id|>user<|end_header_id|>
+{INPUT}
+<|eot_id|>
+<|start_header_id|>assistant<|end_header_id|>
+{OUTPUT}
+<|eot_id|>"""
 
 def formatting_prompts(examples):
     texts = []
@@ -113,14 +119,14 @@ print("LoRA 설정")
 lora_config = LoraConfig(
     r=16,    # LoRA 차원
     lora_alpha=32,    # LoRA Scaling Factor
-    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],    # LoRA 적용 대상 모듈
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],    # LoRA 적용 대상 모듈: "k_proj", "o_proj"
     lora_dropout=0.05,   # 드롭아웃 비율
     bias="none",     # LoRA에서 bias 사용 여부
     task_type="CAUSAL_LM"    # LLM 파인튜닝을 위한 Causal Language Model 설정
 )
 
 # MAX SEQ LENGTH
-MAX_SEQ_LENGTH = 4096
+MAX_SEQ_LENGTH = 512
 if hasattr(tokenizer, "model_max_length"):
     MAX_SEQ_LENGTH = min(MAX_SEQ_LENGTH, tokenizer.model_max_length)
 
@@ -136,13 +142,14 @@ os.makedirs(output_dir, exist_ok=True)
 
 train_args = TrainingArguments(
     per_device_train_batch_size=8,    # 배치 크기 (GPU 당 샘플 개수)
+    per_device_eval_batch_size=8,
     gradient_accumulation_steps=4,    # 메모리 최적화 gradient accumulation 누적 스텝
     gradient_checkpointing=True,    # 활성화하면, GPU 메모리 사용감소 가능, 수행시간은 더 걸린다.
-    num_train_epochs=3,    # 전체 데이터셋을 몇 번 반복해서 학습할 것인가
-    warmup_steps=30,    # 학습률을 서서히 증가시키는 단계 (0 ~ 100)
+    num_train_epochs=2,    # 전체 데이터셋을 몇 번 반복해서 학습할 것인가
+    warmup_steps=100,    # 학습률을 서서히 증가시키는 단계 (0 ~ 100)
     max_steps=-1,    # 최대 학습 스텝 (-1: 조기종료 막기)
-    learning_rate=5e-5,    # 학습률
-    lr_scheduler_type="linear",    # 학습률 스케쥴러
+    learning_rate=1e-4,    # 학습률
+    lr_scheduler_type="cosine",    # 학습률 스케쥴러
     weight_decay=0.01,
     bf16=True,
     warmup_ratio=0.1,
@@ -159,12 +166,10 @@ train_args = TrainingArguments(
 trainer = SFTTrainer(
     model=model,
     peft_config=lora_config,
-    # tokenizer=tokenizer,
     train_dataset=train_data,
     eval_dataset=valid_data,
     args=train_args,
     max_seq_length=MAX_SEQ_LENGTH,
-    # packing=False
 )
 
 model.config.use_cache = False
@@ -173,7 +178,7 @@ model.config.use_cache = False
 wandb_config = {
     "model": BASE_MODEL.split("/")[-1],
     "learning_rate": 1e-4,
-    "epochs": 5,
+    "epochs": 2,
     "batch_size": 8,
     "lora_r": 16,
     "dataset": "CodeAlpaca + CodeSearchNet"
@@ -182,17 +187,17 @@ wandb_config = {
 wandb.init(
     project="ecoprompt",
     entity="surinseong-ai",
-    name="code_lora_1",
+    name="code_lora_3",
     config=wandb_config,
-    resume=True    # 재시작
+    # resume=True    # 재시작
 )
 
 # 학습 시작
 print("Start Training..")
 # trainer.train()
 # 학습 재시작 하기
-resume_checkpoint = "./trainer_output/checkpoint-2002"
-trainer.train(resume_from_checkpoint=resume_checkpoint)
+# resume_checkpoint = "./trainer_output/checkpoint-2002"
+trainer.train()    # resume_from_checkpoint=resume_checkpoint
 
 model.eval()    # 모델의 가중치는 변경하지 않고, forward 연산만 수행한다.
 model.config.use_cache = True    # 이전 계산 결과를 저장하고 사용한다. => 추론속도 빨라짐, 메모리 사용 증가

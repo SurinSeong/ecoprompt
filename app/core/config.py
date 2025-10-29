@@ -8,13 +8,13 @@ class TotalSettings(BaseSettings):
     base_model: str = "./llm-models/Llama-SSAFY-8B"
     # 모델 엔진 실행 관련 파라미터
     gpu_memory_utilization: float = 0.82
-    tensor_parallel_size: int = 1
-    max_model_len: int = 1024
+    tensor_parallel_size: int = 2
+    max_model_len: int = 4096
     max_num_seqs: int = 128
     # sampling params
     temperature: float = 0.3
     top_p: float = 0.95
-    max_tokens: int = 512
+    max_tokens: int = 2048
 
 
 # wandb 관련
