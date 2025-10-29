@@ -9,12 +9,12 @@ from app.models.llm_client import llm_generate
 router = APIRouter()
 
 @router.post("/test", response_model=ChatResponse)
-def test_chat(request: ChatRequest):
+async def test_chat(request: ChatRequest):
     """테스트용"""
     user_input = request.user_input
-    request_id = request.message_id
+    request_id = request.request_id
 
-    llm_response = llm_generate(user_input, request_id)
+    llm_response = await llm_generate(user_input, request_id)
 
     return {
         "request_id": request_id,

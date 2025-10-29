@@ -16,12 +16,18 @@ llm/
 │   │       ├── endpoints/                  # API 엔드포인트 구현
 │   │       │   ├── chat.py
 │   │       │   ├── train.py
-│   │       │   ├── evaluate.py
 │   │       │   └── ...
 │   │       └── routers.py
 │   ├── core/                               # 설정, 보안, 유틸성 모듈
 │   │   ├── config.py                       # 환경 변수 로드, 전역 설정
 │   │   └── celery_app.py                   # 비동기
+│   │
+│   ├── models/                             # AI 모델 관련
+│   │   ├── embedding_model.py              # 임베딩 모델 로드 관련
+│   │   ├── llm_loader.py                   # 메인 LLM 로드 관련
+│   │   ├── llm_client.py                   # 메인 LLM 답변
+│   │   └── prompt_template.py              # 질문에 맞는 프롬프트
+│   │
 │   ├── schemas/                            # Pydantic 스키마 모음
 │   │   ├── chat.py                        
 │   │   └── ...              
@@ -119,6 +125,14 @@ uv run app/services/model_download.py
 - `wandb login` 후, API_KEY 설정한다.
 
 7. 성능 평가를 위한 `lm-evaluation-harness` repo clone
+```bash
+# tests 폴더 안에
+git clone https://github.com/EleutherAI/lm-evaluation-harness.git
+
+cd lm-evaluation-harness
+
+uv pip install -e .
+```
 
 - `./tests/lm-evaluation-harness` 확인
 
