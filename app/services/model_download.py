@@ -32,7 +32,7 @@ def download_and_save(model_id: str, save_dir: str):
 # ===== Llama-3.1-Korean-8B-Instruct =====
 download_and_save(
     model_id="sh2orc/Llama-3.1-Korean-8B-Instruct",
-    save_dir="./models/Llama-3.1-Korean-8B-Instruct"
+    save_dir="./local-models/Llama-3.1-Korean-8B-Instruct"
 )
 
 # # ===== Midm-2.0-Base-Instruct =====

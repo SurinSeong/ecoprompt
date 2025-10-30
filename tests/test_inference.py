@@ -2,7 +2,7 @@ from vllm import LLM, SamplingParams
 
 llm = LLM(
     # model="./models/Llama-3.1-Korean-8B-Instruct",
-    model="./models/merged-8B-Instruct-Ko",    # LoRA Adaptor 병합 모델
+    model="./local-models/merged-8B-Instruct-Ko",    # LoRA Adaptor 병합 모델
     tokenizer="meta-llama/Llama-3.1-8B-Instruct",
     trust_remote_code=True,
     dtype="auto",

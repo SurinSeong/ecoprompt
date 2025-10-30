@@ -2,9 +2,9 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-base_dir = "./models/Llama-3.1-Korean-8B-Instruct"
-lora_dir = "./models/Llama-3.1-Korean-8B-Instruct-LoRA/lora-adapter"
-out_dir = "./models/merged-8B-Instruct-Ko"
+base_dir = "./local-models/Llama-3.1-Korean-8B-Instruct"
+lora_dir = "./local-models/train/llama-lora-adapter"
+out_dir = "./local-models/Llama-SSAFY-8B/v_latest"
 
 dtype = torch.bfloat16
 base = AutoModelForCausalLM.from_pretrained(
