@@ -5,7 +5,7 @@
 __pycache__
 
 llama.cpp
-llm-models/
+local-models/
 lm-evaluation-harness/
 /data
 trainer_output/
