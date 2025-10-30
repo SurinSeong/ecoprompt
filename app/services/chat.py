@@ -1,49 +1,61 @@
-import asyncio
-import time
+import json
+from typing import AsyncGenerator, Dict, Any
+
+from vllm.v1.engine.async_llm import AsyncLLM
+from vllm import SamplingParams
+
 
 # # 모델에게 답변 받기
-async def generate_response(user_input: str, message_id: str):
-    return ""
+async def generate_sse_stream(
+        llm_engine: AsyncLLM,
+        request_id: str,
+        user_input: str,
+        sampling_params: SamplingParams,
+        final_responses: Dict[str, Any]
+) -> AsyncGenerator[str, None]:
+    """
+    n=2 응답 처리:
+        outputs[0]은 스트리밍, outputs[1]은 컨테이너에 저장.
+        (sampling_params의 n은 반드시 2로 설정되어 있어야 함.)
+    """
+    agen = llm_engine.generate(
+        request_id=request_id, prompt=user_input, sampling_params=sampling_params
+    )
 
-#     all_responses = {}    # 2개의 응답을 저장할 딕셔너리
-#     response_texts = ["", ""]
+    sent_text = ""
+    rejected_text = ""    # 두 번째 응답의 누적 텍스트를 저장할 변수
 
-#     while True:
-#         request_outputs = llm.step()
+    try:
+        async for result in agen:
+            if not result.outputs or len(result.outputs) < 2:
+                continue
 
-#         for output in request_outputs:
-#             if output.request_id == message_id:
+            # Chosen: 스트리밍 처리
+            chosen_text = result.outputs[0].text
+            new_text = chosen_text[len(sent_text):]
+            sent_text = chosen_text
 
-#                 # output.outputs는 n개의 SampleOutput을 포함
-#                 for i, sample_output in enumerate(output.outputs):
-#                     text = sample_output.text
+            if new_text:
+                # SSE 및 yield
+                payload = {"delta": new_text}
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
-#                     # 1.스트리밍 처리하기 : 선호 답변
-#                     if i == 0:
-#                         new_text = text[len(response_texts[i]):]
-#                         response_texts[i] = text
+            # rejected: 누적 처리 후 저장
+            rejected_text = result.outputs[1].text
 
-#                         # 띄어쓰기 단위로 새로운 텍스트를 yield
-#                         for word in new_text.split(" "):
-#                             if word:    # 빈 문자열은 제외한다.
-#                                 yield {"chunk": word + " "}    # <-- 딕셔너리 형태로 yield
+            # 최종 결과 저장 및 종료
+            if result.finished:
+                # 스트리밍 루프 끝난 후, 최종 텍스트를 컨테이너에 저장
+                final_responses["chosen"] = chosen_text
+                final_responses["rejected"] = rejected_text
 
-#                     # 요청이 완료되면 종료 (각 응답의 최종 텍스트를 저장)
-#                     if output.finished:
-#                         # n개의 응답을 모두 저장
-#                         all_responses[i] = text
-                
-#                 # 요청이 완료되면 스트리밍을 종료하고 최종 응답을 반환
-#                 if output.finished:
-#                     chosen_text = all_responses.get(0, "")
-#                     rejected_text = all_responses.get(1, "")
+                # 스트리밍 완료
+                yield "event: end_of_stream\ndata: {}\n\n"
+                return
+            
+    except Exception as e:
+        error_payload = {"error": f"Error during streaming: {str(e)}"}
+        yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
+        raise 
 
-#                     final_result = {
-#                         "chosen": chosen_text,
-#                         "rejected": rejected_text
-#                     }
-
-#                     return final_result
-                
-#         await asyncio.sleep(0.1)
 
