@@ -5,7 +5,6 @@
 __pycache__
 
 llama.cpp
-/models
 llm-models/
 lm-evaluation-harness/
 /data
