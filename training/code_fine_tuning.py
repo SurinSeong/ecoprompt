@@ -62,8 +62,8 @@ from peft import LoraConfig, get_peft_model
 
 print("LoRA 설정")
 lora_config = LoraConfig(
-    r=16,    # LoRA 차원
-    lora_alpha=32,    # LoRA Scaling Factor
+    r=8,    # LoRA 차원
+    lora_alpha=16,    # LoRA Scaling Factor
     target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],    # LoRA 적용 대상 모듈
     lora_dropout=0.05,   # 드롭아웃 비율
     bias="none",     # LoRA에서 bias 사용 여부
@@ -87,8 +87,8 @@ train_args = TrainingArguments(
     gradient_accumulation_steps=4,    # 메모리 최적화 gradient accumulation 누적 스텝
     gradient_checkpointing=True,    # 활성화하면, GPU 메모리 사용감소 가능, 수행시간은 더 걸린다.
     num_train_epochs=3,    # 전체 데이터셋을 몇 번 반복해서 학습할 것인가
-    warmup_steps=100,    # 학습률을 서서히 증가시키는 단계 (0 ~ 100)
-    max_steps=-1,    # 최대 학습 스텝 (-1: 조기종료 막기)
+    # warmup_steps=100,    # 학습률을 서서히 증가시키는 단계 (0 ~ 100)
+    max_steps=3000,    # 최대 학습 스텝 (-1: 조기종료 막기)
     learning_rate=2e-4,    # 학습률
     lr_scheduler_type="cosine",    # 학습률 스케쥴러
     weight_decay=0.01,
@@ -98,9 +98,9 @@ train_args = TrainingArguments(
     seed=SEED,
     logging_steps=50,
     eval_strategy="steps",
-    eval_steps=50,
+    eval_steps=100,
     save_strategy="steps",
-    save_steps=1000,
+    save_steps=500,
     report_to="wandb",
 )
 
@@ -110,10 +110,10 @@ trainer = SFTTrainer(
     peft_config=lora_config,
     train_dataset=train_dataset,
     eval_dataset=valid_dataset,
-    dataset_text_field="text",
+    # dataset_text_field="text",
     args=train_args,
-    max_seq_length=MAX_SEQ_LENGTH,
-    tokenizer=tokenizer
+    # max_seq_length=MAX_SEQ_LENGTH,
+    # tokenizer=tokenizer
 )
 
 # ======
@@ -130,16 +130,16 @@ model.config.use_cache = False
 wandb_config = {
     "model": BASE_MODEL.split("/")[-1],
     "learning_rate": 2e-4,
-    "epochs": 3,
+    "max_steps": 3000,
     "batch_size": 8,
-    "lora_r": 16,
+    "lora_r": 8,
     "dataset": "OpenCoder-LLM/opc-sft-stage2"
 }
 
 wandb.init(
     project="ecoprompt",
     entity="surinseong-ai",
-    name="code_sft_lora",
+    name="code_sft_lora_v3",
     config=wandb_config,
     # resume=True    # 재시작
 )
@@ -151,12 +151,13 @@ wandb.init(
 print("Start Training..")
 trainer.train()
 
-# # 학습 재시작 하기
-# # resume_checkpoint = "./trainer_output/checkpoint-2002"
-# trainer.train()    # resume_from_checkpoint=resume_checkpoint
+# 학습 재시작 하기
+# print("Resume Training..")
+# resume_checkpoint = "./trainer_output/checkpoint-2000"
+# trainer.train(resume_from_checkpoint=resume_checkpoint)    # 
 
-model.eval()    # 모델의 가중치는 변경하지 않고, forward 연산만 수행한다.
-model.config.use_cache = True    # 이전 계산 결과를 저장하고 사용한다. => 추론속도 빨라짐, 메모리 사용 증가
+# model.eval()    # 모델의 가중치는 변경하지 않고, forward 연산만 수행한다.
+# model.config.use_cache = True    # 이전 계산 결과를 저장하고 사용한다. => 추론속도 빨라짐, 메모리 사용 증가
 
 wandb.finish()
 
