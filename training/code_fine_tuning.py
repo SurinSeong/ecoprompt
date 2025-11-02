@@ -57,6 +57,51 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto"      # GPU 자동 분배
 )
 
+# Llama 3.1 chat template 적용하기 => mLA 파일 확인하기
+chat_template = """<|begin_of_text|>
+<|start_header_id|>system<|end_header_id|>
+{SYSTEM}
+<|eot_id|>
+<|start_header_id|>user<|end_header_id|>
+{INPUT}
+<|eot_id|>
+<|start_header_id|>assistant<|end_header_id|>
+{OUTPUT}
+<|eot_id|>"""
+
+def formatting_prompts(examples):
+    texts = []
+
+    for messages in examples["messages"]:
+
+    #     prompt = tokenizer.apply_chat_template(
+    #         messages[:2], tokenizer=False, add_generation_prompt=True
+    #     )
+    #     response = messages[-1]["content"].strip() + tokenizer.eos_token
+    #     texts.append(prompt + response)
+
+    # return {"texts": texts}
+        prompt = chat_template.format(
+            SYSTEM = messages[0]["content"],
+            INPUT = messages[1]["content"],
+            OUTPUT = messages[2]["content"]
+        )
+        
+        texts.append(prompt)
+    
+    return {"text": texts}
+
+# # TRL이 기대하는 키로 매핑하기
+# def to_trl_schema(dataset):
+#     return dataset.map(formatting_prompts, batched=True, remove_columns=dataset.column_names)
+
+train_dataset = combined_train_dataset.map(formatting_prompts, batched=True)
+valid_dataset = combined_valid_dataset.map(formatting_prompts, batched=True)
+
+train_data = train_dataset.map(lambda samples: tokenizer(samples["text"]), batched=True)
+valid_data = valid_dataset.map(lambda samples: tokenizer(samples["text"]), batched=True)
+
+
 # LoRA 설정
 from peft import LoraConfig, get_peft_model
 
@@ -64,7 +109,7 @@ print("LoRA 설정")
 lora_config = LoraConfig(
     r=16,    # LoRA 차원
     lora_alpha=32,    # LoRA Scaling Factor
-    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],    # LoRA 적용 대상 모듈
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],    # LoRA 적용 대상 모듈: "k_proj", "o_proj"
     lora_dropout=0.05,   # 드롭아웃 비율
     bias="none",     # LoRA에서 bias 사용 여부
     task_type="CAUSAL_LM"    # LLM 파인튜닝을 위한 Causal Language Model 설정 (작업 유형)
@@ -74,7 +119,7 @@ lora_config = LoraConfig(
 model = get_peft_model(model, lora_config)
 
 # MAX SEQ LENGTH
-MAX_SEQ_LENGTH = 4096
+MAX_SEQ_LENGTH = 512
 if hasattr(tokenizer, "model_max_length"):
     MAX_SEQ_LENGTH = min(MAX_SEQ_LENGTH, tokenizer.model_max_length)
 
@@ -108,12 +153,10 @@ train_args = TrainingArguments(
 trainer = SFTTrainer(
     model=model,
     peft_config=lora_config,
-    train_dataset=train_dataset,
-    eval_dataset=valid_dataset,
-    dataset_text_field="text",
+    train_dataset=train_data,
+    eval_dataset=valid_data,
     args=train_args,
     max_seq_length=MAX_SEQ_LENGTH,
-    tokenizer=tokenizer
 )
 
 # ======
