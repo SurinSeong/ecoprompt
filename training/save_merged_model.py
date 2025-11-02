@@ -3,8 +3,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
 base_dir = "./local-models/Llama-3.1-Korean-8B-Instruct"
-lora_dir = "./local-models/train/llama-lora-adapter"
-out_dir = "./local-models/Llama-SSAFY-8B/v_latest"
+# lora_dir = "./local-models/train/llama-lora-adapter"
+lora_dir = "./trainer_output/checkpoint-500"    # 학습이 중간에 끊겨 체크포인트를 통해 저장한다.
+out_dir = "./local-models/Llama-SSAFY-8B/test"
 
 dtype = torch.bfloat16
 base = AutoModelForCausalLM.from_pretrained(
