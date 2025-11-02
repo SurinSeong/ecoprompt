@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional
 
 # 응답
 class ChatResponse(BaseModel):
@@ -10,3 +11,12 @@ class ChatResponse(BaseModel):
 class ChatRequest(BaseModel):
     user_input: str
     request_id: str    # UUID
+
+
+# structured outputs
+class Responses(BaseModel):
+    """LLM 답변"""
+    request_id: str = Field(..., description="The UUID of the user input")    # UUID
+    chosen: str = Field(..., description="The correct answer about the user input")
+    rejected: str = Field(..., description="The wrong answer about the user input")
+    

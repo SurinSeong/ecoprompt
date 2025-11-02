@@ -4,7 +4,7 @@ SEED = 42
 
 class TotalSettings(BaseSettings):
     # DPO 파인튜닝한 모델 저장 폴더
-    base_model: str = "./llm-models/Llama-SSAFY-8B"
+    base_model: str = "./local-models/Llama-SSAFY-8B"
     # 모델 엔진 실행 관련 파라미터
     gpu_memory_utilization: float = 0.82
     tensor_parallel_size: int = 2
@@ -15,7 +15,7 @@ class TotalSettings(BaseSettings):
     top_p: float = 0.95
     max_tokens: int = 2048
 
-
+      
 # wandb 관련
 class WandbSettings(BaseSettings):
     project: str = "ecoprompt"

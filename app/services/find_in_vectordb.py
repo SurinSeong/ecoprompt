@@ -1,14 +1,20 @@
-import os
-from qdrant_client import QdrantClient
-from dotenv import load_dotenv
+from app.models.load_for_rag import get_vector_store
 
-load_dotenv()
 
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+def find_documents(user_input: str):
+    """Qdrant를 통해 관련 정보 찾기""" 
 
-qdrant_client = QdrantClient(
-    url="https://c5c72aa1-571c-4980-8091-f3fe5f10b794.us-west-1-0.aws.cloud.qdrant.io:6333", 
-    api_key=QDRANT_API_KEY,
-)
+    vector_store = get_vector_store()
 
-print(qdrant_client.get_collections())
+    results = vector_store.similarity_search(user_input, k=2)
+    try:
+        serialized = "\n\n".join(
+            (f"Source: {result.metadata}\nContent: {result.page_content}")
+            for result in results
+        )
+        return serialized
+    
+    except Exception as e:
+        print("Error: {e}")
+        return None
+

@@ -1,64 +1,54 @@
-import random
-import wandb
 import os
+import wandb
+import torch
+
+from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
+from trl import SFTTrainer
+
+from load_training_datasets import load_sft_datasets
+
+# GPU 메모리 관리
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 SEED = 42
 
-# 학습 데이터셋 로드하기
-from datasets import load_dataset, concatenate_datasets
+# ===============
+# 학습 데이터 로드
+# ===============
 
-data_path = "./data/code_data"
+# Llama 3.1 chat template 적용하기
+def format_example(row):
+    return {
+        'text': f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+ 
+        당신은 친절하고 똑똑한 AI assistant 입니다. 사용자의 질문에 알맞은 답변을 반환해주세요.<|eot_id|>\n<|start_header_id|>user<|end_header_id|>
+ 
+        {row['instruction']}<|eot_id|>\n<|start_header_id|>assistant<|end_header_id|>
+ 
+        {row['output']}<|eot_id|"""
+    }
 
-alpaca_dataset = load_dataset("json", data_files=data_path + "/alpaca_total.jsonl")
-searchnet_dataset = load_dataset("json", data_files=data_path + "/code_search_net_total.jsonl")
+# 데이터셋 로드
+train_dataset, valid_dataset = load_sft_datasets()
 
-# code search net 데이터셋 줄이기
-num_samples = 30000 # total dataset의 데이터개수를 5만개로 설정하기 위해
-indices = random.sample(range(len(searchnet_dataset["train"])), num_samples)
-searchnet_dataset = searchnet_dataset["train"].select(indices)
-
-# train / valid로 분리하기
-alpaca_dataset = alpaca_dataset["train"].train_test_split(test_size=0.2, seed=SEED)
-alpaca_train = alpaca_dataset["train"]
-alpaca_valid = alpaca_dataset["test"]
-
-searchnet_dataset = searchnet_dataset.train_test_split(test_size=0.2, seed=SEED)
-searchnet_train = searchnet_dataset["train"]
-searchnet_valid = searchnet_dataset["test"]
-
-print("Alpaca dataset split:")
-print(f"  Train size: {len(alpaca_train)}")
-print(f"  Valid size: {len(alpaca_valid)}")
-
-print("\nCode Search Net dataset split:")
-print(f"  Train size: {len(searchnet_train)}")
-print(f"  Valid size: {len(searchnet_valid)}")
-
-# 두 종류의 데이터 합치기
-combined_train_dataset = concatenate_datasets([alpaca_train, searchnet_train])
-combined_valid_dataset = concatenate_datasets([alpaca_valid, searchnet_valid])
-
-print("\nCombined dataset split:")
-print("   Train size:", len(combined_train_dataset))
-print("   Valid size:", len(combined_valid_dataset))
-
-print("[COMPLETED] 학습 데이터셋 로드 완료")
-
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
-from trl import SFTTrainer
+# 포맷팅 함수 적용
+train_dataset = train_dataset.map(format_example)
+valid_dataset = valid_dataset.map(format_example)
 
 # =========
 # 모델 로드
 # =========
 
-BASE_MODEL = "./models/Llama-3.1-Korean-8B-Instruct"
+BASE_MODEL = "./local-models/Llama-3.1-Korean-8B-Instruct"
 
-# 토크나이저 설정
-tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, use_fast=True, trust_remote_code=True)
-tokenizer.pad_token = tokenizer.eos_token
-tokenizer.padding_side = "right"
+# 토크나이저 로드
+tokenizer = AutoTokenizer.from_pretrained(
+    BASE_MODEL,
+    use_fast=True,
+    trust_remote_code=True
+)
+tokenizer.pad_token = tokenizer.eos_token    # 시퀸스 패딩에 eos 토큰 사용
+tokenizer.padding_side = "right"    # 패딩을 오른쪽에 추가
 
 # 모델 로드
 model = AutoModelForCausalLM.from_pretrained(
@@ -113,7 +103,7 @@ valid_data = valid_dataset.map(lambda samples: tokenizer(samples["text"]), batch
 
 
 # LoRA 설정
-from peft import LoraConfig
+from peft import LoraConfig, get_peft_model
 
 print("LoRA 설정")
 lora_config = LoraConfig(
@@ -122,8 +112,11 @@ lora_config = LoraConfig(
     target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],    # LoRA 적용 대상 모듈: "k_proj", "o_proj"
     lora_dropout=0.05,   # 드롭아웃 비율
     bias="none",     # LoRA에서 bias 사용 여부
-    task_type="CAUSAL_LM"    # LLM 파인튜닝을 위한 Causal Language Model 설정
+    task_type="CAUSAL_LM"    # LLM 파인튜닝을 위한 Causal Language Model 설정 (작업 유형)
 )
+
+# PEFT 어댑터 설정을 모델에 적용한다.
+model = get_peft_model(model, lora_config)
 
 # MAX SEQ LENGTH
 MAX_SEQ_LENGTH = 512
@@ -133,33 +126,27 @@ if hasattr(tokenizer, "model_max_length"):
 # 학습 Argument 설정
 print("Training Argument 설정")
 
-# 결과 저장 폴더
-import os
-
-output_dir = "./models/Llama-3.1-Korean-8B-Instruct-LoRA"
-lora_adapter_dir = f"{output_dir}/lora-adapter"
-os.makedirs(output_dir, exist_ok=True)
-
 train_args = TrainingArguments(
     per_device_train_batch_size=8,    # 배치 크기 (GPU 당 샘플 개수)
     per_device_eval_batch_size=8,
     gradient_accumulation_steps=4,    # 메모리 최적화 gradient accumulation 누적 스텝
     gradient_checkpointing=True,    # 활성화하면, GPU 메모리 사용감소 가능, 수행시간은 더 걸린다.
-    num_train_epochs=2,    # 전체 데이터셋을 몇 번 반복해서 학습할 것인가
+    num_train_epochs=3,    # 전체 데이터셋을 몇 번 반복해서 학습할 것인가
     warmup_steps=100,    # 학습률을 서서히 증가시키는 단계 (0 ~ 100)
     max_steps=-1,    # 최대 학습 스텝 (-1: 조기종료 막기)
-    learning_rate=1e-4,    # 학습률
+    learning_rate=2e-4,    # 학습률
     lr_scheduler_type="cosine",    # 학습률 스케쥴러
     weight_decay=0.01,
     bf16=True,
     warmup_ratio=0.1,
     optim="adamw_torch",
     seed=SEED,
-    logging_steps=10,
+    logging_steps=50,
     eval_strategy="steps",
     eval_steps=50,
-    save_strategy="epoch",
-    report_to="wandb"
+    save_strategy="steps",
+    save_steps=1000,
+    report_to="wandb",
 )
 
 # Trainer Setup
@@ -172,42 +159,51 @@ trainer = SFTTrainer(
     max_seq_length=MAX_SEQ_LENGTH,
 )
 
+# ======
+# 저장
+# ======
+
+lora_adapter_dir = "./local-models/train/llama-lora-adapter"
+os.makedirs(lora_adapter_dir, exist_ok=True)
+
+# 혹시 모를 캐시 관련 메모리 문제 예방
 model.config.use_cache = False
 
 # wandb 설정
 wandb_config = {
     "model": BASE_MODEL.split("/")[-1],
-    "learning_rate": 1e-4,
-    "epochs": 2,
+    "learning_rate": 2e-4,
+    "epochs": 3,
     "batch_size": 8,
     "lora_r": 16,
-    "dataset": "CodeAlpaca + CodeSearchNet"
+    "dataset": "OpenCoder-LLM/opc-sft-stage2"
 }
 
 wandb.init(
     project="ecoprompt",
     entity="surinseong-ai",
-    name="code_lora_3",
+    name="code_sft_lora",
     config=wandb_config,
     # resume=True    # 재시작
 )
 
+# ======
 # 학습 시작
+# ======
+
 print("Start Training..")
-# trainer.train()
-# 학습 재시작 하기
-# resume_checkpoint = "./trainer_output/checkpoint-2002"
-trainer.train()    # resume_from_checkpoint=resume_checkpoint
+trainer.train()
+
+# # 학습 재시작 하기
+# # resume_checkpoint = "./trainer_output/checkpoint-2002"
+# trainer.train()    # resume_from_checkpoint=resume_checkpoint
 
 model.eval()    # 모델의 가중치는 변경하지 않고, forward 연산만 수행한다.
 model.config.use_cache = True    # 이전 계산 결과를 저장하고 사용한다. => 추론속도 빨라짐, 메모리 사용 증가
 
 wandb.finish()
 
-# LoRA 어댑터/토크나이저 저장
+# LoRA 어댑터 저장
 print("LoRA 어댑터 저장")
-os.makedirs(lora_adapter_dir, exist_ok=True)
-trainer.save_model(lora_adapter_dir)
-tokenizer.save_pretrained(output_dir)
+trainer.save_model(lora_adapter_dir)    # LoRA 어댑터 가중치 저장
 print(f"LoRA 어댑터가 '{lora_adapter_dir}'에 저장되었습니다.")
-print(f"토크나이저가  '{output_dir}'에 저장되었습니다.")
