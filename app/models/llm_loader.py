@@ -96,7 +96,7 @@ def load_tokenizer():
         llm_tokenizer = AutoTokenizer.from_pretrained(
             MODEL_NAME
         )
-        print("✅ LLM Engine loaded successfully.")
+        print("✅ LLM Tokenizer loaded successfully.")
 
     except Exception as e:
         print(f"❌ Failed to load Tokenizer: {e}")

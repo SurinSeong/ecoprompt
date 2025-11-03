@@ -668,6 +668,7 @@ dependencies = [
     { name = "langchain-community" },
     { name = "langchain-core" },
     { name = "langchain-huggingface" },
+    { name = "langchain-mongodb" },
     { name = "langchain-qdrant" },
     { name = "math-verify" },
     { name = "matplotlib" },
@@ -692,6 +693,7 @@ requires-dist = [
     { name = "langchain-community", specifier = ">=0.4" },
     { name = "langchain-core", specifier = ">=1.0.0" },
     { name = "langchain-huggingface", specifier = ">=1.0.0" },
+    { name = "langchain-mongodb", specifier = ">=0.7.1" },
     { name = "langchain-qdrant", specifier = ">=1.1.0" },
     { name = "math-verify", specifier = ">=0.8.0" },
     { name = "matplotlib", specifier = ">=3.10.7" },
@@ -1563,6 +1565,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1d/0d/2a22659534cc70410573a53d32756cf7971de7923ba2ccf940c03ecbe12a/langchain_huggingface-1.0.0.tar.gz", hash = "sha256:0d2eb924ff77dc08bb7dd340ab10d47c1b71372e4297bc12e84c4a66df9a4414", size = 247750, upload-time = "2025-10-17T15:30:35.179Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ac/30/7476a926e31498ebc4be3131e06650c5136ffb8ba12067f56212e187dd7c/langchain_huggingface-1.0.0-py3-none-any.whl", hash = "sha256:06d6ac57951c6a1c47d329c38f2b32472a839eab2fa14883be784916ea075da0", size = 27493, upload-time = "2025-10-17T15:30:34.023Z" },
+]
+
+[[package]]
+name = "langchain-mongodb"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain" },
+    { name = "langchain-core" },
+    { name = "langchain-text-splitters" },
+    { name = "lark" },
+    { name = "numpy" },
+    { name = "pymongo" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a3/f8/643958cf2c97b3a0d12cda7a2ee3559d9966ea88dcd9b449250b8e2f4c2b/langchain_mongodb-0.7.1.tar.gz", hash = "sha256:c06dd173ba70b103baa2a39843109e31febe8586131a67f77c920e6d17dd36da", size = 281315, upload-time = "2025-10-13T14:03:01.98Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/30/88/e0b957b2d86defbfeb8181860c2bff3379ac16e918a155aed815a18190ed/langchain_mongodb-0.7.1-py3-none-any.whl", hash = "sha256:dda81023e499025b8c911103ab756d2e9cc40f953727fbbf72165bb85e684e16", size = 60724, upload-time = "2025-10-13T14:03:00.192Z" },
 ]
 
 [[package]]
