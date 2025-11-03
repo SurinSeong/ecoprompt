@@ -1,7 +1,6 @@
 import os
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
 from typing import Optional
 from dotenv import load_dotenv
 
@@ -26,10 +25,10 @@ def load_embedding_model():
     print("Starting Embedding Model Load from loader...")
     try:
         embedding_model = HuggingFaceEmbeddings(model_name="dragonkue/multilingual-e5-small-ko")
-        print("Model loaded successfully.")
+        print("✅ Model loaded successfully.")
 
     except Exception as e:
-        print("Failed to load Embedding model: {e}")
+        print(f"❌ Failed to load Embedding model: {e}")
 
 
 def get_embedding_model() -> HuggingFaceEmbeddings:
@@ -52,20 +51,17 @@ def load_vectordb():
     # 없다면
     print("Starting Vector Store Load from loader...")
     try:
-        client = QdrantClient(
-            url="https://c5c72aa1-571c-4980-8091-f3fe5f10b794.us-west-1-0.aws.cloud.qdrant.io:6333", 
-            api_key=QDRANT_API_KEY,
-        )
 
-        vector_store = QdrantVectorStore(
-            client=client,
-            collection_name="about_ssafy",
-            embedding=embedding_model
+        vector_store = QdrantVectorStore.from_existing_collection(
+            url="https://c5c72aa1-571c-4980-8091-f3fe5f10b794.us-west-1-0.aws.cloud.qdrant.io:6333",
+            collection_name="ssafy",
+            embedding=embedding_model,
+            api_key=QDRANT_API_KEY
         )
         print("Vector Store loaded successfully.")
     
     except Exception as e:
-        print("Failed to load Vector Store: {e}")
+        print(f"Failed to load Vector Store: {e}")
     
 
 def get_vector_store() -> QdrantVectorStore:
