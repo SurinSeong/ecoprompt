@@ -27,4 +27,5 @@ dependencies = [
     "trl>=0.24.0",
     "vllm==0.10.2",
     "wandb>=0.22.2",
+    "llama-cpp-python>=0.3.16",
 ]

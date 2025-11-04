@@ -29,11 +29,11 @@ def download_and_save(model_id: str, save_dir: str):
     print(f"[완료] 모델과 토크나이저가 '{save_dir}'에 저장되었습니다.")
 
 
-# ===== Llama-3.1-Korean-8B-Instruct =====
-download_and_save(
-    model_id="sh2orc/Llama-3.1-Korean-8B-Instruct",
-    save_dir="./local-models/Llama-3.1-Korean-8B-Instruct"
-)
+# # ===== Llama-3.1-Korean-8B-Instruct =====
+# download_and_save(
+#     model_id="sh2orc/Llama-3.1-Korean-8B-Instruct",
+#     save_dir="./local-models/Llama-3.1-Korean-8B-Instruct"
+# )
 
 # # ===== Midm-2.0-Base-Instruct =====
 # download_and_save(

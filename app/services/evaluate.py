@@ -8,7 +8,7 @@ os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 
 # DPO 파인튜닝한 모델 경로 확인
 if base_settings.base_model:
-    last_model = base_settings.base_model + "/" + os.listdir(base_settings.base_model)[-1]
+    last_model = base_settings.base_model + "/dpo_model"
     
 
 def evaluate_model(last_model):

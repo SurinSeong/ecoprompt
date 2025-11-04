@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.services.chat import generate_sse_stream, stream_response
-from app.models.llm_loader import get_llm_engine, get_llm, load_sampling_params, get_tokenizer
-from app.models.load_for_rag import get_vector_store
+from app.services.chat import stream_response
+from app.models.llm_loader import get_llm, get_tokenizer
+from app.models.vectordb_loader import get_vector_store
+from app.models.mongodb_loader import find_chatting_id, get_chat_history
 
 router = APIRouter()
 
@@ -12,21 +13,25 @@ router = APIRouter()
 async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get_tokenizer), vector_store=Depends(get_vector_store)):
     """
     스트림 답변 제공
-    - 아직 chosen, rejected 구분하지 않음.
     """
     user_input = request.user_input
     personal_prompt = request.personal_prompt
     message_uuid = request.message_uuid
 
-    chain = stream_response(vector_store=vector_store, llm=llm, tokenizer=tokenizer)
-    
     # 사용자 대화 히스토리 불러오기
-    
+    chatting_id = find_chatting_id(message_uuid)
+    if chatting_id:
+        chat_history = get_chat_history(chatting_id)
+        # content와 senderType을 조합해서 histroy 생성하는 코드 필요함.
+    else:
+        chat_history = None
+
+    chain = stream_response(vector_store=vector_store, llm=llm, tokenizer=tokenizer)
     payload = {
         "personal_prompt": personal_prompt,
         "question": user_input,
         "history": "",
-        "context": ""
+        "context": ""    # 추후 chat_history로 변경예정
     }
 
     async def event_generator():
@@ -79,13 +84,15 @@ async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get
                     break
 
             print(f"[CHOSEN]\n{chosen_response}")
-
+        
         except Exception as e:
             # 오류 시 스트림 종료
             yield f"data: [ERROR] {type(e).__name__}: {e}\n\n"
 
         print(f"[REJECTED]\n{rejected_response}")
-    
+
+        # rejected response 저장하기
+
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 

@@ -1,7 +1,8 @@
 # DPO 학습용 데이터셋 불러오기
 # 필요한 요소: prompt, chosen, rejected
 from datasets import load_dataset
-from app.core.config import SEED
+
+SEED = 42
 
 # 데이터셋 전처리
 def return_prompt_and_responses(samples):
@@ -14,11 +15,8 @@ def return_prompt_and_responses(samples):
         "rejected": samples["rejected"],
     }
 
-# MongoDB에서 마스킹 처리된 데이터 가져오기
-def get_masking_data(first_id: int):
-    # MongoDB에서 데이터 가져오기
-
-
+# 마스킹 처리된 데이터 가져오기
+def process_training_data(data: list):
     # dataset으로 로드할 수 있도록 전처리
 
 
@@ -37,6 +35,3 @@ def get_masking_data(first_id: int):
     final_dataset = dpo_dataset["train"].train_test_split(test_size=0.1, seed=SEED)
 
     return final_dataset
-
-
-

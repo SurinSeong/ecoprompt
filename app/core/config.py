@@ -1,21 +1,19 @@
+import os
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
+from typing import Optional
+
+load_dotenv()
 
 SEED = 42
 
 class TotalSettings(BaseSettings):
     # DPO 파인튜닝한 모델 저장 폴더
     base_model: str = "./local-models/Llama-SSAFY-8B"
-    # 모델 엔진 실행 관련 파라미터
-    gpu_memory_utilization: float = 0.82
-    tensor_parallel_size: int = 2
-    max_model_len: int = 4096
-    max_num_seqs: int = 128
-    # sampling params
-    temperature: float = 0.3
-    top_p: float = 0.95
-    max_tokens: int = 2048
+    # MongoDB 관련
+    mongo_url: str = os.getenv("MONGO_URL")
 
-      
+
 # wandb 관련
 class WandbSettings(BaseSettings):
     project: str = "ecoprompt"
@@ -47,10 +45,11 @@ class EvaluateSettings(BaseSettings):
     eval_device: str = "cuda:1"
     eval_seed: int = SEED
     eval_num_fewshot: int = 0    # 기본값: 0
-    eval_output_path: str = "./output/eval"
+    eval_output_path: str = "./eval_output"
     eval_log_samples: bool = True
     eval_auto_after_train: bool = True
-    
+
+
 
 base_settings = TotalSettings()
 wandb_settings = WandbSettings()

@@ -1,6 +1,5 @@
 from app.core.config import train_settings
 
-import os
 import wandb
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
@@ -38,7 +37,7 @@ def train_model(model_path: str, dpo_dataset):
         num_train_epochs=1,
         warmup_ratio=train_settings.warmup_ratio,
         lr_scheduler_type=train_settings.lr_scheduler_type,
-        output_dir=base_settings.base_model + "/v_latest",
+        output_dir="./dpo_output",
         save_total_limit=3,
         save_steps=100,
         remove_unused_columns=False,
@@ -65,17 +64,20 @@ def train_model(model_path: str, dpo_dataset):
         "learning_rate": train_settings.learning_rate,
         "epochs": 5,
         "batch_size": train_settings.per_device_train_batch_size,
-        "dataset": "userQA"
+        "dataset": "user-QA"
     }
 
     wandb.init(
         project=wandb_settings.project,
         entity=wandb_settings.entity,
-        name=f"dpo_{model_path.split("/")[-1].split("_")[-1]}",
+        name=f"dpo_self_train",
         config=wandb_config
     )
 
     print("[START] 모델 학습 시작")
     trainer.train()
+
+    # 모델 저장
+    trainer.save_model(base_settings.base_model + "/dpo_model")
 
     wandb.finish()
