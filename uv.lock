@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12.3"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'linux'",
@@ -674,6 +674,7 @@ dependencies = [
     { name = "peft" },
     { name = "pydantic-settings" },
     { name = "qdrant-client" },
+    { name = "torch" },
     { name = "trl" },
     { name = "vllm" },
     { name = "wandb" },
@@ -696,6 +697,7 @@ requires-dist = [
     { name = "peft", specifier = ">=0.17.1" },
     { name = "pydantic-settings", specifier = ">=2.11.0" },
     { name = "qdrant-client", specifier = ">=1.15.1" },
+    { name = "torch", specifier = ">=2.8.0" },
     { name = "trl", specifier = ">=0.24.0" },
     { name = "vllm", specifier = "==0.10.2" },
     { name = "wandb", specifier = ">=0.22.2" },
