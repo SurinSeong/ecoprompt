@@ -5,12 +5,15 @@ from vllm.v1.engine.async_llm import AsyncLLM
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.sampling_params import RequestOutputKind
 
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from app.core.config import base_settings
 
 # 전역 변수 정의
+MODEL_NAME = base_settings.base_model + "/v_2"
+
 llm_engine: Optional[AsyncLLM] = None
+llm: Optional[AutoModelForCausalLM] = None
 llm_tokenizer: Optional[AutoTokenizer] = None
 
 async def load_llm_engine():
@@ -27,7 +30,7 @@ async def load_llm_engine():
     try:
         # AsyncLLM 설정
         engine_args = AsyncEngineArgs(
-            model="./local-models/Llama-3.1-Korean-8B-Instruct",
+            model=MODEL_NAME,
             enforce_eager=True,
         )
         llm_engine = AsyncLLM.from_engine_args(engine_args)
@@ -46,6 +49,38 @@ def get_llm_engine() -> AsyncLLM:
     return llm_engine
 
 
+async def load_llm():
+    """vLLM 엔진을 초기화하고 전역 변수에 할당"""
+    global llm
+
+    # 이미 있다면
+    if llm is not None:
+        print("LLM already loaded.")
+        return
+
+    # 없다면
+    print("⏳ Starting LLM Load from loader...")
+    try:
+
+        llm = AutoModelForCausalLM.from_pretrained(
+            pretrained_model_name_or_path=MODEL_NAME,
+            device_map="auto"
+        )
+        print("✅ LLM loaded successfully.")
+
+    except Exception as e:
+        print(f"❌ Failed to load LLM: {e}")       
+
+
+def get_llm() -> AutoModelForCausalLM:
+    """초기화된 LLM 객체를 반환"""
+    global llm
+
+    if llm is None:
+        raise RuntimeError("LLM Engine is not initialized.")
+    return llm
+
+
 def load_tokenizer():
     """토크나이저 로드하기"""
     global llm_tokenizer
@@ -59,10 +94,9 @@ def load_tokenizer():
     print("⏳ Starting Tokenizer Load from loader...")
     try:
         llm_tokenizer = AutoTokenizer.from_pretrained(
-            "meta-llama/Llama-3.1-8B-Instruct",
-            trust_remote_code=True
+            MODEL_NAME
         )
-        print("✅ LLM Engine loaded successfully.")
+        print("✅ LLM Tokenizer loaded successfully.")
 
     except Exception as e:
         print(f"❌ Failed to load Tokenizer: {e}")

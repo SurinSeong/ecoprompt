@@ -139,7 +139,7 @@ uv pip install -e .
 8. RAG를 위한 라이프러리 설치
 
 ```bash
-uv run langchain-huggingface langchain-qdrant
+uv add langchain-huggingface langchain-qdrant
 ```
 
 ## 프로젝트 시작
