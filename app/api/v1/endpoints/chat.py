@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
@@ -16,12 +17,12 @@ async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get
     """
     user_input = request.user_input
     personal_prompt = request.personal_prompt
-    message_uuid = request.message_uuid
+    message_uuid = str(request.message_uuid)
 
     # 사용자 대화 히스토리 불러오기
     chatting_id = find_chatting_id(message_uuid)
     if chatting_id:
-        chat_history = get_chat_history(chatting_id)
+        chat_history = get_chat_history(int(chatting_id))
         # content와 senderType을 조합해서 histroy 생성하는 코드 필요함.
     else:
         chat_history = None
@@ -46,27 +47,49 @@ async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get
         
         sequence_id = -1
         try:
-            for chunk in chain.stream(payload):
+            async for chunk in chain.astream(payload):
+                # print(chunk)
                 if not chunk:
                     continue
+
+                # # 🔥 여기가 핵심 — chunk를 문자열로 변환
+                # print(chunk)
+                # if not isinstance(chunk, str):
+                #     try:
+                #         # AIMessageChunk 같은 경우 .content 속성
+                #         if hasattr(chunk, "content"):
+                #             chunk = chunk.content or ""
+                #         # dict면 content / delta / text 중 추출
+                #         elif isinstance(chunk, dict):
+                #             chunk = (
+                #                 chunk.get("content")
+                #                 or chunk.get("delta", {}).get("content")
+                #                 or chunk.get("text")
+                #                 or json.dumps(chunk, ensure_ascii=False)
+                #             )
+                #         else:
+                #             chunk = str(chunk)
+                #     except Exception as e:
+                #         print(f"[WARN] Failed to normalize chunk: {type(chunk)} - {e}")
+                #         continue
                 
                 sequence_id += 1
 
                 if (state == "SEEK_OPEN_CHOSEN") and (OPEN_C in chunk):
                     state = "FOUND_CHOSEN"
-                    yield f"data: {ChatResponse(sequence_id=sequence_id, token="START").model_dump_json()}\n"
+                    yield f"data: {ChatResponse(sequence_id=sequence_id, token="START").model_dump_json()}\n\n"
                     continue
                 
 
                 if (state == "FOUND_CHOSEN") and (OPEN_C not in chunk) and (CLOSE_C not in chunk):
                     chosen_response += chunk
-                    yield f"data: {ChatResponse(sequence_id=sequence_id, token=chunk).model_dump_json()}\n"
+                    yield f"data: {ChatResponse(sequence_id=sequence_id, token=chunk).model_dump_json()}\n\n"
                     continue
 
                 
                 if (state == "FOUND_CHOSEN") and (OPEN_C not in chunk) and (CLOSE_C in chunk):
                     state = "END_CHOSEN"
-                    yield f"data: {ChatResponse(sequence_id=sequence_id, token='DONE').model_dump_json()}\n"
+                    yield f"data: {ChatResponse(sequence_id=sequence_id, token='DONE').model_dump_json()}\n\n"
                     continue
 
 
@@ -86,6 +109,7 @@ async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get
             print(f"[CHOSEN]\n{chosen_response}")
         
         except Exception as e:
+            # print(chunk)
             # 오류 시 스트림 종료
             yield f"data: [ERROR] {type(e).__name__}: {e}\n\n"
 
