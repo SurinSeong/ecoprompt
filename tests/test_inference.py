@@ -1,18 +1,21 @@
+import torch
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
+
+MODEL_PATH = "./local-models/Llama-SSAFY-8B/v_latest"    # 원본 모델 경로
 
 tokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path="./local-models/Llama-SSAFY-8B/v_latest"
     )
 
 llm = LLM(
-    # model="./models/Llama-3.1-Korean-8B-Instruct",
-    model="./local-models/Llama-SSAFY-8B_q4_k_m.gguf",    # LoRA Adaptor 병합 모델
-    tokenizer="./local-models/Llama-SSAFY-8B/v_latest",
-    dtype="auto",
+    model=MODEL_PATH,
+    dtype=torch.bfloat16,
     max_model_len=4096,
     gpu_memory_utilization=0.75,
-    tensor_parallel_size=2
+    tensor_parallel_size=2,
+    quantization="bitsandbytes",
+    load_format="bitsandbytes"
 )
 
 sampling_params_chosen = SamplingParams(
