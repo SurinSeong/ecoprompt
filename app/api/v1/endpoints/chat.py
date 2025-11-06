@@ -1,38 +1,48 @@
 import json
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.exceptions import HTTPException
 
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat import stream_response
 from app.models.llm_loader import get_llm, get_tokenizer
 from app.models.vectordb_loader import get_vector_store
-from app.models.mongodb_loader import find_chatting_id, get_chat_history
+from app.models.mongodb_loader import get_mongodb
+from app.services.use_mongodb import find_chatting_id, get_chat_history
 
 router = APIRouter()
 
 @router.post("")
-async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get_tokenizer), vector_store=Depends(get_vector_store)):
+async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get_tokenizer), vector_store=Depends(get_vector_store), mongo_client=Depends(get_mongodb)):
     """
     스트림 답변 제공
     """
     user_input = request.user_input
     personal_prompt = request.personal_prompt
     message_uuid = str(request.message_uuid)
+    
+    try:
+        # 사용자 대화 히스토리 불러오기
+        chatting_id = await find_chatting_id(mongo_client, message_uuid)
+        print(f"[채팅 번호] {chatting_id}")
 
-    # 사용자 대화 히스토리 불러오기
-    chatting_id = find_chatting_id(message_uuid)
-    if chatting_id:
-        chat_history = get_chat_history(int(chatting_id))
-        # content와 senderType을 조합해서 histroy 생성하는 코드 필요함.
-    else:
-        chat_history = None
+        chat_history = await get_chat_history(mongo_client, int(chatting_id))
+        print(f"[채팅 기록] {chat_history}")
 
+    except Exception as e:
+        print(f"ERROR {e}")
+        chatting_id = None
+        print(f"[채팅 번호] {chatting_id}\n=> 채팅 기록이 없습니다.")
+        chat_history = ""
+
+    # 답변 생성 체인
     chain = stream_response(vector_store=vector_store, llm=llm, tokenizer=tokenizer)
+    
     payload = {
         "personal_prompt": personal_prompt,
         "question": user_input,
-        "history": "",
-        "context": ""    # 추후 chat_history로 변경예정
+        "history": chat_history,
+        "context": ""    # 벡터 DB 연결해봐야 함.
     }
 
     async def event_generator():
@@ -51,27 +61,6 @@ async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get
                 # print(chunk)
                 if not chunk:
                     continue
-
-                # # 🔥 여기가 핵심 — chunk를 문자열로 변환
-                # print(chunk)
-                # if not isinstance(chunk, str):
-                #     try:
-                #         # AIMessageChunk 같은 경우 .content 속성
-                #         if hasattr(chunk, "content"):
-                #             chunk = chunk.content or ""
-                #         # dict면 content / delta / text 중 추출
-                #         elif isinstance(chunk, dict):
-                #             chunk = (
-                #                 chunk.get("content")
-                #                 or chunk.get("delta", {}).get("content")
-                #                 or chunk.get("text")
-                #                 or json.dumps(chunk, ensure_ascii=False)
-                #             )
-                #         else:
-                #             chunk = str(chunk)
-                #     except Exception as e:
-                #         print(f"[WARN] Failed to normalize chunk: {type(chunk)} - {e}")
-                #         continue
                 
                 sequence_id += 1
 
@@ -89,8 +78,15 @@ async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get
                 
                 if (state == "FOUND_CHOSEN") and (OPEN_C not in chunk) and (CLOSE_C in chunk):
                     state = "END_CHOSEN"
-                    yield f"data: {ChatResponse(sequence_id=sequence_id, token='DONE').model_dump_json()}\n\n"
-                    continue
+                    if chunk.strip() != CLOSE_C:
+                        chunk = chunk.replace(CLOSE_C, "")
+                        yield f"data: {ChatResponse(sequence_id=sequence_id, token=chunk).model_dump_json()}\n\n"
+                        yield f"data: {ChatResponse(sequence_id=sequence_id+1, token='DONE').model_dump_json()}\n\n"
+                        continue
+
+                    else:
+                        yield f"data: {ChatResponse(sequence_id=sequence_id, token='DONE').model_dump_json()}\n\n"
+                        continue
 
 
                 if (state == "END_CHOSEN") and (OPEN_R in chunk):
@@ -99,6 +95,7 @@ async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get
 
 
                 if (state == "FOUND_REJECTED") and (OPEN_R not in chunk) and (CLOSE_R not in chunk):
+                    # print(chunk)
                     rejected_response += chunk
                     continue
 
@@ -107,38 +104,24 @@ async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get
                     break
 
             print(f"[CHOSEN]\n{chosen_response}")
+            print(f"[REJECTED]\n{rejected_response}")
+
+            yield f"data: {ChatResponse(sequence_id=-1, token=rejected_response).model_dump_json()}\n\n"
         
         except Exception as e:
             # print(chunk)
             # 오류 시 스트림 종료
             yield f"data: [ERROR] {type(e).__name__}: {e}\n\n"
 
-        print(f"[REJECTED]\n{rejected_response}")
+        
 
-        # rejected response 저장하기
+        # # rejected response 저장하기
+        # if chatting_id:
+        #     result = await save_rejected_response(mongo_client, int(chatting_id), message_uuid, rejected_response)
+        #     if result:
+        #         print(f"[답변 저장] 완료")
+        # else:
+        #     print("chatting_id가 없어 답변을 저장할 수 없습니다.")
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-
-# @router.post("")
-# async def stream(request: ChatRequest, llm=Depends(get_llm_engine), tokenizer=Depends(get_tokenizer)):
-#     """vLLM 스트림을 받아 SSE 형식으로 클라이언트에게 응답"""
-#     sampling_params = load_sampling_params()
-#     request_id = request.request_id
-#     user_input = request.user_input
-
-#     # 최종 결과를 담을 컨테이너 생성
-#     final_responses = {"chosen": "", "rejected": ""}
-
-#     # 서비스 함수 호출
-#     stream_generator = generate_sse_stream(
-#         llm,
-#         request_id,
-#         user_input,
-#         sampling_params,
-#         final_responses
-#     )
-
-#     # DB에 rejected 저장하기
-
-#     return StreamingResponse(stream_generator, media_type="text/event-stream")

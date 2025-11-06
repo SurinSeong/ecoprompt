@@ -1,60 +1,37 @@
 import os
 from dotenv import load_dotenv
-
-from langchain_mongodb import MongoDBChatMessageHistory
+from pymongo import AsyncMongoClient
+from typing import Optional
 
 load_dotenv()
 
-# 메시지 UUID 기준으로 조회하는 커스텀 클래스 설정
-class CustomMongoDBChatMessageHistorywithUUID(MongoDBChatMessageHistory):
+# 전역변수 설정
+mongo_client: Optional[AsyncMongoClient] = None
 
-    def messages(self):
-        """UUID 기준으로 조회"""
-        cursor = self.collection.find(
-            {"messageUUID": self.session_id}
-        ).sort("createdAt", 1)
-        return cursor
+async def load_mongodb():
+    """mongodb 초기화"""
+    global mongo_client
 
+    if mongo_client is not None:
+        print("MongoDB already loaded.")
+        return
     
-# chattingId 기준으로 조회하는 커스텀 클래스 설정
-class CustomMongoDBChatMessageHistorywithChattingId(MongoDBChatMessageHistory):
-    def add_message(self, message):
-        """chatting_id를 사용하여 저장한다."""
-        record = {
-            "chattingId": self.session_id,
-            "messageUUID": message.message_uuid,
-            "content": message.content,
-            "senderType": message.sender_type,
-        }
-        self.collection.insert_one(record)
+    print("⏳ Starting MongoDB Load from loader...")
 
-    def messages(self):
-        """UUID 기준으로 조회"""
-        cursor = self.collection.find(
-            {"chattingId": self.session_id}
-        ).sort("createdAt", 1)
-        return cursor
+    try:
+        mongo_client = AsyncMongoClient(
+            os.getenv("MONGO_URL")
+        )
+        print("✅ MongoDB loaded successfully.")
+    
+    except Exception as e:
+        print(f"❌ Failed to load LLM: {e}")
 
-# MongoDB에서 채팅 내역 가져오기
-def find_chatting_id(message_uuid: str):
-    history = CustomMongoDBChatMessageHistorywithUUID(
-        connection_string=os.getenv("MONGO_URL"),
-        database_name="eco_prompt",
-        collection_name="message",
-        session_id=message_uuid
-    )
-    messages = history.messages()
-    for message in messages:
-        if message["chattingId"]:
-            return message["chattingId"]
-    return None
 
-# Chat History 가져오기
-def get_chat_history(chatting_id: int):
-    chat_history = CustomMongoDBChatMessageHistorywithChattingId(
-        connection_string=os.getenv("MONGO_URL"),
-        database_name="eco_prompt",
-        collection_name="message",
-        session_id=chatting_id
-    )
-    return chat_history
+def get_mongodb() -> AsyncMongoClient:
+    """초기화된 MongoDB 객체 반환"""
+    global mongo_client
+
+    if mongo_client is None:
+        raise RuntimeError("MongoDB is not initialized.")
+    return mongo_client

@@ -2,10 +2,11 @@ import torch
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 
-MODEL_PATH = "./local-models/Llama-SSAFY-8B/v_latest"    # 원본 모델 경로
+# MODEL_PATH = "./local-models/Llama-SSAFY-8B/v_latest"    # 원본 모델 경로
+MODEL_PATH = "../quantization/Midm-2.0-Mini-Instruct"
 
 tokenizer = AutoTokenizer.from_pretrained(
-        pretrained_model_name_or_path="./local-models/Llama-SSAFY-8B/v_latest"
+        pretrained_model_name_or_path=MODEL_PATH
     )
 
 llm = LLM(
@@ -13,22 +14,23 @@ llm = LLM(
     dtype=torch.bfloat16,
     max_model_len=4096,
     gpu_memory_utilization=0.75,
-    tensor_parallel_size=2,
+    # tensor_parallel_size=1,
     quantization="bitsandbytes",
-    load_format="bitsandbytes"
+    load_format="bitsandbytes",
+    enforce_eager=True
 )
 
 sampling_params_chosen = SamplingParams(
     temperature=0.6,
     top_p=0.95,
-    max_tokens=512,
+    max_tokens=1024,
     n=1
 )
 
 sampling_params_rejected = SamplingParams(
-    temperature=1.5,
+    temperature=1.3,
     top_p=0.95,
-    max_tokens=512,
+    max_tokens=1024,
     n=1
 )
 
@@ -98,8 +100,16 @@ def chat(user_input, personal_prompt, chat_history, context):
     output_chosen = llm.generate(
         input,
         sampling_params=sampling_params_chosen,
+        stream=True
     )
-    chosen_text = output_chosen[0].outputs[0].text
+
+    last_len = {}
+    # chosen_text = output_chosen[0].outputs[0].text
+    for output in output_chosen:
+        request_id = output.request_id
+        text = output.outputs[0].text
+        prev = last_len.get(request_id, 0)
+        print(text[prev:], end="", flush=True)
 
     output_rejected = llm.generate(
         input,
@@ -108,7 +118,7 @@ def chat(user_input, personal_prompt, chat_history, context):
     rejected_text = output_rejected[0].outputs[0].text
 
 
-    return chosen_text, rejected_text
+    return rejected_text
 
 
 # 함수 실행
@@ -117,9 +127,10 @@ chat_history = ""
 context = ""
 user_input = "파이썬 merge sort 코드와 자세한 설명도 같이 제시해줘."
 
-chosen, rejected = chat(user_input, personal_prompt, chat_history, context)
+rejected = chat(user_input, personal_prompt, chat_history, context)
 
-print("[선호응답]")
-print(chosen)
+# print("[선호응답]")
+# print(chosen)
 print("[비선호응답]")
 print(rejected)
+print("==End==")

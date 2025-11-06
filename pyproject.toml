@@ -28,4 +28,5 @@ dependencies = [
     "vllm==0.10.2",
     "wandb>=0.22.2",
     "llama-cpp-python>=0.3.16",
+    "dnspython>=2.8.0",
 ]

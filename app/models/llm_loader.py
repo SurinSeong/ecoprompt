@@ -5,7 +5,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from app.core.config import base_settings
 
 # 전역 변수 정의
-MODEL_NAME = base_settings.base_model + "/v_latest"
+# MODEL_NAME = base_settings.base_model + "/v_latest"
+MODEL_NAME = "../quantization/Midm-2.0-Mini-Instruct"
 
 llm: Optional[AutoModelForCausalLM] = None
 llm_tokenizer: Optional[AutoTokenizer] = None
@@ -38,7 +39,7 @@ def get_llm() -> AutoModelForCausalLM:
     global llm
 
     if llm is None:
-        raise RuntimeError("LLM Engine is not initialized.")
+        raise RuntimeError("LLM is not initialized.")
     return llm
 
 

@@ -1,7 +1,7 @@
 # 사용자 질의 응답 스키마
 from pydantic import BaseModel, Field
 from pydantic.config import ConfigDict
-from typing import Optional
+from typing import Optional, TypedDict
 from uuid import UUID
 
 # 응답
@@ -29,3 +29,15 @@ class ChatRequest(BaseModel):
     user_input: str = Field(alias="userInput")
     personal_prompt: str = Field(alias="personalPrompt")
     message_uuid: UUID = Field(alias="messageUUID")
+
+
+# 저장
+"""
+(
+    String messageUUID,
+    Integer chattingId,
+    String senderType
+    String content 
+)
+"""
+# 추후 스키마 만들 예정
