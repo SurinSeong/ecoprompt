@@ -1,28 +1,24 @@
 # 파인튜닝 전 기존 모델 성능평가
 import os, json
 from lm_eval import evaluator
-from app.core.config import evaluate_settings, base_settings
+from app.core.config import evaluate_settings
 
 # 코드 평가 (task 실행 중 실제 코드 실행)를 허용하기 위한 안전 장치
 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
-
-# DPO 파인튜닝한 모델 경로 확인
-if base_settings.base_model:
-    last_model = base_settings.base_model + "/dpo_model"
     
 
 def evaluate_model(last_model):
     
     # 평가 실행
-    results = evaluator.simple_evaluate(
+    results = evaluator.evaluate(
         model=evaluate_settings.eval_model,
-        model_args=f"pretrained={last_model},trust_remote_code=True",
+        model_args=f"pretrained={last_model}",
         tasks=evaluate_settings.eval_tasks,
+        batch_size=evaluate_settings.eval_batch_size,
         num_fewshot=evaluate_settings.eval_num_fewshot,
         seed=evaluate_settings.eval_seed,
         device=evaluate_settings.eval_device,
         log_samples=evaluate_settings.eval_log_samples,
-        batch_size=evaluate_settings.eval_batch_size,
         output_path=evaluate_settings.eval_output_path
     )
     
@@ -30,7 +26,7 @@ def evaluate_model(last_model):
     print(evaluator.make_table(results))
 
     # 결과 저장
-    with open(f"{evaluate_settings.eval_output_path}/{evaluate_settings.eval_tasks}-results.json", "w") as f:
+    with open(f"{evaluate_settings.eval_output_path}/{'_'.join(evaluate_settings.eval_tasks)}-results.json", "w") as f:
         json.dump(results, f, indent=4, ensure_ascii=False)
     
     print("[COMPLETED] 평가 결과 저장 완료.")

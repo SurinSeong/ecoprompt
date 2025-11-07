@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import torch
 import os
 
 from app.core.config import base_settings
+from app.models.llm_loader import get_tokenizer
 from app.schemas.train import TrainRequest, TrainResponse
 from app.services.dpo_train import train_model
 from app.services.load_dpo_datasets import process_training_data
@@ -11,30 +12,24 @@ from app.services.evaluate import evaluate_model
 router = APIRouter()
 
 @router.post("", response_model=TrainResponse, status_code=200)
-async def train(request: TrainRequest):
+async def train(request: TrainRequest, tokenizer=Depends(get_tokenizer)):
     """모델 학습하기"""
 
     if request.start_training:
-        # 학습할 모델 가져오기
-        target_model_path = base_settings.base_model + f"/v_latest"
-
-        print(f"학습할 모델: {target_model_path}")
-    
         # 마스킹 처리한 데이터 받기
         training_dataset = request.training_data
 
-    try:
+    if training_dataset:
+
         print("[START] 데이터 처리 시작")
         # 데이터 처리
-        final_dataset = process_training_data(training_dataset)
+        final_dataset = process_training_data(tokenizer, training_dataset)
 
         print("[COMPLETED] 데이터 처리 완료")
 
         try:
             print("[START] 모델 학습 시작")
-            
-            train_model(target_model_path, final_dataset)
-            
+            train_model(final_dataset, tokenizer)
             print("[COMPLETED] 모델 학습 완료")
             
             try:

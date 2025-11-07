@@ -56,7 +56,8 @@ def load_tokenizer():
     print("⏳ Starting Tokenizer Load from loader...")
     try:
         llm_tokenizer = AutoTokenizer.from_pretrained(
-            MODEL_NAME
+            pretrained_model_name_or_path=MODEL_NAME,
+            use_fast=True
         )
         print("✅ Tokenizer loaded successfully.")
 
