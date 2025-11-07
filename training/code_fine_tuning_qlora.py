@@ -2,7 +2,7 @@ import os
 import wandb
 import torch
 
-from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
+from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, BitsAndBytesConfig
 from trl import SFTTrainer
 
 from load_training_datasets import load_sft_datasets
@@ -18,6 +18,7 @@ SEED = 42
 
 # Llama 3.1 chat template 적용하기
 def format_example(row):
+
     return {
         'text': f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
  
@@ -50,12 +51,6 @@ tokenizer = AutoTokenizer.from_pretrained(
 tokenizer.pad_token = tokenizer.eos_token    # 시퀸스 패딩에 eos 토큰 사용
 tokenizer.padding_side = "right"    # 패딩을 오른쪽에 추가
 
-# 모델 로드
-model = AutoModelForCausalLM.from_pretrained(
-    BASE_MODEL,
-    torch_dtype=torch.bfloat16,    # BF16
-    device_map="auto"      # GPU 자동 분배
-)
 
 # Llama 3.1 chat template 적용하기 => mLA 파일 확인하기
 chat_template = """<|begin_of_text|>
@@ -95,8 +90,8 @@ def formatting_prompts(examples):
 # def to_trl_schema(dataset):
 #     return dataset.map(formatting_prompts, batched=True, remove_columns=dataset.column_names)
 
-train_dataset = combined_train_dataset.map(formatting_prompts, batched=True)
-valid_dataset = combined_valid_dataset.map(formatting_prompts, batched=True)
+# train_dataset = combined_train_dataset.map(formatting_prompts, batched=True)
+# valid_dataset = combined_valid_dataset.map(formatting_prompts, batched=True)
 
 train_data = train_dataset.map(lambda samples: tokenizer(samples["text"]), batched=True)
 valid_data = valid_dataset.map(lambda samples: tokenizer(samples["text"]), batched=True)
@@ -115,13 +110,22 @@ lora_config = LoraConfig(
     task_type="CAUSAL_LM"    # LLM 파인튜닝을 위한 Causal Language Model 설정 (작업 유형)
 )
 
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16
+)
+
+# 모델 로드
+model = AutoModelForCausalLM.from_pretrained(
+    BASE_MODEL,
+    torch_dtype=torch.bfloat16,    # BF16
+    device_map="auto",      # GPU 자동 분배
+    quantization_config=bnb_config
+)
+
 # PEFT 어댑터 설정을 모델에 적용한다.
 model = get_peft_model(model, lora_config)
-
-# MAX SEQ LENGTH
-MAX_SEQ_LENGTH = 512
-if hasattr(tokenizer, "model_max_length"):
-    MAX_SEQ_LENGTH = min(MAX_SEQ_LENGTH, tokenizer.model_max_length)
 
 # 학습 Argument 설정
 print("Training Argument 설정")
