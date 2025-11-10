@@ -157,7 +157,7 @@ async def main():
         enforce_eager=True,
         gpu_memory_utilization=0.45,
         trust_remote_code=True,
-        # quantization="bitsandbytes",
+        quantization="fp8",
         max_model_len=8192
 
     )
@@ -167,6 +167,7 @@ async def main():
         model=MODEL_PATH_2,
         enforce_eager=True,
         gpu_memory_utilization=0.65,
+        quantization="bitsandbytes",
         max_model_len=8192
     )
     engine_2 = AsyncLLM.from_engine_args(engine_args_2)

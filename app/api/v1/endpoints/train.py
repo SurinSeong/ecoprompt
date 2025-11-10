@@ -74,6 +74,6 @@ async def train(request: TrainRequest, tokenizer=Depends(get_tokenizer)):
             print(f"🚨 Unexpected error: {type(e).__name__}: {e}")
             return {"is_completed": False}
     
-    except Exception as e:
-        print(f"🚨 데이터 처리 로직 없음: {type(e).__name__}: {e}")
-        return {"is_completed": False}
+        except Exception as e:
+            print(f"🚨 데이터 처리 로직 없음: {type(e).__name__}: {e}")
+            return {"is_completed": False}
