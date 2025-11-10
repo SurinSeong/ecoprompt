@@ -12,6 +12,16 @@ class TotalSettings(BaseSettings):
     # MongoDB 관련
     mongo_url: str = os.getenv("MONGO_URL")
 
+    # samplingparams
+    temperature: float = 0.3
+    top_p: float = 0.95
+
+    # vllm
+    batch_size: int = 1
+    block_size: int = 16384
+
+
+
 
 # wandb 관련
 class WandbSettings(BaseSettings):
