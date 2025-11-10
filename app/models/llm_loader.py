@@ -3,48 +3,48 @@ from typing import Optional
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.v1.engine.async_llm import AsyncLLM
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
 
 from app.core.config import base_settings
 
 # 전역 변수 정의
-# MODEL_NAME = base_settings.base_model + "/v_latest"
+MODEL_NAME = base_settings.base_model + "/qwen"
 # MODEL_NAME = "../quantization/Midm-2.0-Mini-Instruct"
-MODEL_NAME = "./local-models/Qwen2.5-Coder-0.5B-Instruct"
+# MODEL_NAME = "./local-models/Qwen2.5-Coder-7B-Instruct"
 
-llm: Optional[AutoModelForCausalLM] = None
+# llm: Optional[AutoModelForCausalLM] = None
 llm_tokenizer: Optional[AutoTokenizer] = None
 llm_engine: Optional[AsyncLLM] = None
 
-async def load_llm():
-    """vLLM 엔진을 초기화하고 전역 변수에 할당"""
-    global llm
+# async def load_llm():
+#     """vLLM 엔진을 초기화하고 전역 변수에 할당"""
+#     global llm
 
-    # 이미 있다면
-    if llm is not None:
-        print("LLM already loaded.")
-        return
+#     # 이미 있다면
+#     if llm is not None:
+#         print("LLM already loaded.")
+#         return
 
-    # 없다면
-    print("⏳ Starting LLM Load from loader...")
-    try:
+#     # 없다면
+#     print("⏳ Starting LLM Load from loader...")
+#     try:
 
-        llm = AutoModelForCausalLM.from_pretrained(
-            pretrained_model_name_or_path=MODEL_NAME
-        )
-        print("✅ LLM loaded successfully.")
+#         llm = AutoModelForCausalLM.from_pretrained(
+#             pretrained_model_name_or_path=MODEL_NAME
+#         )
+#         print("✅ LLM loaded successfully.")
 
-    except Exception as e:
-        print(f"❌ Failed to load LLM: {e}")       
+#     except Exception as e:
+#         print(f"❌ Failed to load LLM: {e}")       
 
 
-def get_llm() -> AutoModelForCausalLM:
-    """초기화된 LLM 객체를 반환"""
-    global llm
+# def get_llm() -> AutoModelForCausalLM:
+#     """초기화된 LLM 객체를 반환"""
+#     global llm
 
-    if llm is None:
-        raise RuntimeError("LLM is not initialized.")
-    return llm
+#     if llm is None:
+#         raise RuntimeError("LLM is not initialized.")
+#     return llm
 
 
 def load_tokenizer():
@@ -78,7 +78,7 @@ def get_tokenizer() -> AutoTokenizer:
     return llm_tokenizer
 
 
-def load_llm_engine():
+async def load_llm_engine():
     """vllm으로 llm 엔진 초기화 하기"""
     global llm_engine
 
