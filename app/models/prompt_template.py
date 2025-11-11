@@ -69,3 +69,15 @@ rejected_prompt = """
 
 ---
 """
+
+from langchain_core.prompts import PromptTemplate
+
+route_prompt = PromptTemplate.from_template(
+    """주어진 사용자 질문을 `코딩`, `SSAFY`, 또는 `일반` 중 하나로 분류하세요. 한 단어 이상으로 응답하지 마세요.
+
+    <question>
+    {question}
+    </question>
+
+    Classification:"""
+)

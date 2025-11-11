@@ -3,7 +3,7 @@ import torch
 import os
 
 from app.core.config import base_settings
-from app.models.llm_loader import get_tokenizer
+from app.models.llm_loader import get_tokenizer_2
 from app.schemas.train import TrainRequest, TrainResponse
 from app.services.dpo_train import train_model
 from app.services.load_dpo_datasets import process_training_data
@@ -12,7 +12,7 @@ from app.services.evaluate import evaluate_model
 router = APIRouter()
 
 @router.post("", response_model=TrainResponse, status_code=200)
-async def train(request: TrainRequest, tokenizer=Depends(get_tokenizer)):
+async def train(request: TrainRequest, tokenizer=Depends(get_tokenizer_2)):
     """모델 학습하기"""
 
     if request.start_training:

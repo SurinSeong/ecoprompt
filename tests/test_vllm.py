@@ -7,12 +7,15 @@ from vllm import SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.sampling_params import RequestOutputKind
 from vllm.v1.engine.async_llm import AsyncLLM
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnablePassthrough
 
 MODEL_PATH_1 = "./local-models/Qwen2.5-Coder-0.5B-Instruct"    # 원본 모델 경로
 MODEL_PATH_2 = "./local-models/Llama-3.2-1B-Instruct"       # llama 소형 모델
+ROUTER_MODEL = "./local-models/router"
 
-# MODEL_PATH = "./local-models/Midm-2.0-Mini-Instruct"
 
 tokenizer_1 = AutoTokenizer.from_pretrained(
     pretrained_model_name_or_path=MODEL_PATH_1,
@@ -24,6 +27,56 @@ tokenizer_2 = AutoTokenizer.from_pretrained(
 )
 tokenizer_2.pad_token = tokenizer_2.eos_token
 tokenizer_2.padding_side = "left"
+
+# tokenizer_router = AutoTokenizer.from_pretrained(
+#     pretrained_model_name_or_path=ROUTER_MODEL
+# )
+
+route_prompt = PromptTemplate.from_template(
+    """주어진 사용자 질문을 `코딩`, `SSAFY`, 또는 `일반` 중 하나로 분류하세요. 한 단어 이상으로 응답하지 마세요.
+
+    <question>
+    {question}
+    </question>
+
+    Classification:"""
+)
+
+async def routing(router_engine: AsyncLLM, sampling_params: SamplingParams, request_id: str, question: str):
+
+    routing_messages = [
+        {"role": "system", "content": route_prompt},
+        {"role": "user", "content": question}
+    ]
+
+    routing_prompt = tokenizer_2.apply_chat_template(
+        routing_messages,
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+
+    try:
+        result_generator = router_engine.generate(
+            prompt=routing_prompt,
+            sampling_params=sampling_params,
+            request_id=request_id
+        )
+
+        result = ""
+
+        async for request_output in result_generator:
+            if request_output.outputs:
+                result = request_output.outputs[0].text
+            
+            if request_output.finished:
+                break
+
+        return result.strip()
+    
+    except Exception as e:
+        print(f"❌ Router Engine Call Error: {e}")
+        return
+
 
 chosen_prompt = """사용자와의 이전 대화 기록과 주어진 컨텍스트를 참고해서, 사용자가 선호할만한 답변을 반환하세요.
 아래 출력 형식을 100% 준수해주세요.
@@ -71,9 +124,8 @@ rejected_prompt = """
 ---
 """
 
-async def stream_response(engine_1: AsyncLLM, engine_2: AsyncLLM, prompt: str, request_id: str) -> None:
-    print(f"\n🚀 Prompt: {prompt}")
-    print("💬 Response: ", end="", flush=True)
+
+async def stream_response(engine_1: AsyncLLM, engine_2: AsyncLLM, request_id: str, question: str) -> None:
 
     # smapling params 설정
     sampling_params_1 = SamplingParams(
@@ -88,7 +140,7 @@ async def stream_response(engine_1: AsyncLLM, engine_2: AsyncLLM, prompt: str, r
     )
 
     sampling_params_2 = SamplingParams(
-        max_tokens=2048,
+        max_tokens=1024,
         temperature=0.9,
         top_p=0.95,
         seed=42,
@@ -97,9 +149,34 @@ async def stream_response(engine_1: AsyncLLM, engine_2: AsyncLLM, prompt: str, r
         presence_penalty=0.1
     )
 
+    sampling_params_router = SamplingParams(
+        max_tokens=128,
+        temperature=0.1,
+        top_p=0.95,
+        seed=42,
+        repetition_penalty=1.01,
+        frequency_penalty=0.2,
+        presence_penalty=0.1
+    )
+
+    print(f"\n🚀 Prompt: {question}")
+
+    payload = {
+        "question": question,
+    }
+
+    print("===== [Router 준비] =====")
+    predicted_label = await routing(engine_2, sampling_params_router, request_id, question)
+
+    print(f"✅ Predicted Label: {predicted_label}")
+
+
+    print("===== [답변 준비] =====")
+    print("💬 Response: ", end="", flush=True)
+
     chosen_messages = [
         {"role": "system", "content": chosen_prompt},
-        {"role": "user", "content": prompt}
+        {"role": "user", "content": question}
     ]
 
     prompt_1 = tokenizer_1.apply_chat_template(
@@ -111,7 +188,7 @@ async def stream_response(engine_1: AsyncLLM, engine_2: AsyncLLM, prompt: str, r
 
     rejected_messages = [
         {"role": "system", "content": rejected_prompt},
-        {"role": "user", "content": prompt}
+        {"role": "user", "content": question}
     ]
 
     prompt_2 = tokenizer_2.apply_chat_template(
@@ -173,12 +250,13 @@ async def main():
     engine_2 = AsyncLLM.from_engine_args(engine_args_2)
 
     try:
-        prompt = "파이썬 merge sort에 대해 코드 작성하고 간단하게 설명해줘."
+        question = input("질문을 입력하세요.\n")
+
         print("🎯 Running streaming examples...")
 
         request_id = "stream-example-1"
 
-        await stream_response(engine_1, engine_2, prompt, request_id)
+        await stream_response(engine_1, engine_2, request_id, question)
 
         # if i < len(prompts):
         #     await asyncio.sleep(0.5)
