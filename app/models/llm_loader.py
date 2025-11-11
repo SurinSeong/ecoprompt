@@ -8,7 +8,7 @@ from transformers import AutoTokenizer
 from app.core.config import base_settings
 
 # 전역 변수 정의
-# MODEL_NAME = base_settings.base_model + "/v_latest"
+MODEL_NAME = base_settings.base_model + "/qwen"
 # MODEL_NAME = "../quantization/Midm-2.0-Mini-Instruct"
 MODEL_NAME_1 = "./local-models/Qwen2.5-Coder-0.5B-Instruct"
 MODEL_NAME_2 = "./local-models/Llama-3.2-1B-Instruct"
