@@ -8,18 +8,16 @@ from transformers import AutoTokenizer
 from app.core.config import base_settings
 
 # 전역 변수 정의
-MODEL_NAME = base_settings.base_model + "/qwen"
-# MODEL_NAME = "../quantization/Midm-2.0-Mini-Instruct"
-MODEL_NAME_1 = "./local-models/Qwen2.5-Coder-0.5B-Instruct"
-MODEL_NAME_2 = "./local-models/Llama-3.2-1B-Instruct"
-ROUTER_MODEL = "./local-models/router"
+MODEL_NAME_1 = base_settings.base_model + "/qwen"
+# MODEL_NAME_1 = "./local-models/Qwen2.5-Coder-0.5B-Instruct"
+MODEL_NAME_2 = base_settings.base_model + "/midm"
+# MODEL_NAME_2 = "./local-models/Midm-2.0-Base-Instruct"
 
 
 llm_tokenizer_1: Optional[AutoTokenizer] = None
 llm_tokenizer_2: Optional[AutoTokenizer] = None
 llm_engine_1: Optional[AsyncLLM] = None
 llm_engine_2: Optional[AsyncLLM] = None
-router_engine: Optional[AsyncLLM] = None
 
 
 def load_tokenizers():
@@ -70,7 +68,7 @@ def get_tokenizer_2() -> AutoTokenizer:
         raise RuntimeError("Tokenizer 2 is not initialized.")
     
     llm_tokenizer_2.pos_token = llm_tokenizer_2.eos_token
-    llm_tokenizer_2.padding_side = "left"
+    llm_tokenizer_2.padding_side = "right"
     
     return llm_tokenizer_2
 
@@ -144,31 +142,3 @@ def get_llm_engine_2() -> AsyncLLM:
         raise RuntimeError("LLM Engine 2 is not initialized.")
     return llm_engine_2
 
-
-# async def load_router_engine():
-#     """vllm으로 router 엔진 초기화"""
-#     global router_engine
-
-#     if router_engine is not None:
-#         print("Router Engines already loaded.")
-#         return
-    
-#     if router_engine is None:
-#         print(f"⏳ Starting Router Engine Load ({ROUTER_MODEL})...")
-
-#         try:
-#             engine_args = AsyncEngineArgs(
-#                 model=ROUTER_MODEL,
-#                 enforce_eager=True,
-#                 gpu_memory_utilization=0.1,
-#                 quantization="bitsandbytes",
-#                 max_model_len=8192,
-#                 tensor_parallel_size=1
-#             )
-
-#             router_engine = AsyncLLM.from_engine_args(engine_args)
-
-#             print("✅ Router Engine loaded successfully.")
-
-#         except Exception as e:
-#             print(f"❌ Failed to load Router Engine: {e}")

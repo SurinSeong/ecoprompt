@@ -3,6 +3,8 @@ from langchain_core.runnables import RunnableLambda, RunnableParallel
 from vllm.sampling_params import RequestOutputKind
 from vllm import SamplingParams
 
+from app.models.prompt_template import routing_prompt
+
 
 load_dotenv()
 
@@ -35,15 +37,17 @@ def get_sampling_params(prompt_type: str) -> SamplingParams:
             output_kind=RequestOutputKind.DELTA,
         )
 
-def get_router_sampling_params() -> SamplingParams:
+def get_router_sampling_params(tokenizer) -> SamplingParams:
+
+    eos_token_id = [tokenizer.eos_token_id, tokenizer.convert_tokens_to_ids("<|eot_id|>")]
+
     return SamplingParams(
-        max_tokens=128,
+        max_tokens=64,
         temperature=0.1,
         top_p=0.95,
         seed=42,
-        repetition_penalty=1.01,
-        frequency_penalty=0.2,
-        presence_penalty=0.1,
+        frequency_penalty=1.3,
+        stop_token_ids=eos_token_id
     )
 
 async def find_question_type(llm_engine_2, tokenizer_2):
@@ -54,12 +58,8 @@ async def find_question_type(llm_engine_2, tokenizer_2):
         """
         question = str(user_info.get("question", ""))
 
-        system_prompt = """주어진 사용자 질문을 `code`, `algorithm`, `ssafy`, 또는 `general` 중 하나로 분류하세요. 한 단어 이상으로 응답하지 마세요.
-
-        Classification:"""
-
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": routing_prompt},
             {"role": "user", "content": question},
         ]
 
@@ -75,7 +75,7 @@ async def find_question_type(llm_engine_2, tokenizer_2):
         """vLLM Qwen 엔진을 호출하여 비동기 스트리밍을 시작한다."""
         request_id = inputs.get("message_uuid", "")
         prompt = inputs.get("prompt", "")
-        sampling_params = get_router_sampling_params()
+        sampling_params = get_router_sampling_params(tokenizer_2)
         result_generator = llm_engine_2.generate(prompt=prompt, sampling_params=sampling_params, request_id=request_id)
 
         async for request_output in result_generator:

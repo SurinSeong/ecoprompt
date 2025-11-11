@@ -66,14 +66,22 @@ rejected_prompt = """
 ---
 """
 
-from langchain_core.prompts import PromptTemplate
+routing_prompt = """
+당신을 사용자의 질문을 분류하는 전문가입니다.
+사용자의 질문을 아래의 분류 기준과 규칙에 알맞게 분류하세요.
+아래의 출력 예시와 동일한 형식으로 출력해주세요.
 
-route_prompt = PromptTemplate.from_template(
-    """주어진 사용자 질문을 `코딩`, `SSAFY`, 또는 `일반` 중 하나로 분류하세요. 한 단어 이상으로 응답하지 마세요.
+[분류 기준]:
+- code
+- algorithm
+- ssafy
+- general
 
-    <question>
-    {question}
-    </question>
+[규칙]:
+1) 무조건 하나의 단어로 분류하세요. 
+2) 반드시 출력 예시의 형식을 지켜서 사용자의 질문을 분류만 해주세요.
 
-    Classification:"""
-)
+---
+[출력 예시]
+Classification: code
+"""

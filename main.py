@@ -1,3 +1,7 @@
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
@@ -48,7 +52,7 @@ async def lifespan_manager(app: FastAPI):
 # cuda 확인
 import torch
 
-device = "auto" if torch.cuda.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Device set to use {device}")
 
 # 1. FastAPI 인스턴스 생성

@@ -43,11 +43,14 @@ async def chat_vllm(request: ChatRequest, llm_engine_1=Depends(get_llm_engine_1)
         "question": user_input,
     }
     print(router_payload)
+
     router_response = await router_chain.ainvoke(router_payload)
     print(f"[ROUTER]\n{router_response}")
 
+    question_type = router_response.replace("Classification:", "").strip()
+
     # 답변 생성 체인
-    chosen_chain = stream_response_vllm(llm_engine_1=llm_engine_1, llm_engine_2=llm_engine_2, tokenizer_1=tokenizer_1, tokenizer_2=tokenizer_2, prompt_type="chosen", question_type="")
+    chosen_chain = stream_response_vllm(llm_engine_1=llm_engine_1, llm_engine_2=llm_engine_2, tokenizer_1=tokenizer_1, tokenizer_2=tokenizer_2, prompt_type="chosen", question_type=question_type)
     chosen_payload = {
         "message_uuid": message_uuid,
         "service_prompt": chosen_prompt,
@@ -57,7 +60,7 @@ async def chat_vllm(request: ChatRequest, llm_engine_1=Depends(get_llm_engine_1)
         "context": ""    # 벡터 DB 연결해봐야 함.
     }
 
-    rejected_chain = stream_response_vllm(llm_engine_1=llm_engine_1, llm_engine_2=llm_engine_2, tokenizer_1=tokenizer_1, tokenizer_2=tokenizer_2, prompt_type="rejected", question_type="")
+    rejected_chain = stream_response_vllm(llm_engine_1=llm_engine_1, llm_engine_2=llm_engine_2, tokenizer_1=tokenizer_1, tokenizer_2=tokenizer_2, prompt_type="rejected", question_type=question_type)
     rejected_payload = {
         "message_uuid": message_uuid,
         "service_prompt": rejected_prompt,
