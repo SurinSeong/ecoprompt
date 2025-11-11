@@ -12,7 +12,7 @@ def train_model(dpo_dataset, tokenizer):
 
     # 학습할 모델 로드
     model = AutoModelForCausalLM.from_pretrained(
-        pretrained_model_name_or_path=base_settings.base_model + "/v_latest",
+        pretrained_model_name_or_path=base_settings.base_model + "/midm",
         device_map="auto",
         torch_dtype=torch.bfloat16,
         # attn_implementation="flash_attention_2",
@@ -20,7 +20,7 @@ def train_model(dpo_dataset, tokenizer):
     model.config.use_cache = False
 
     model_ref = AutoModelForCausalLM.from_pretrained(
-        pretrained_model_name_or_path=base_settings.base_model + "/v_latest",
+        pretrained_model_name_or_path=base_settings.base_model + "/midm",
         device_map="auto",
         # load_in_8bit=True    # 8bit로 메모리 절감
     )    

@@ -10,7 +10,8 @@ def process_training_data(tokenizer, datasets: list):
     # datasets으로 로드할 수 있도록 전처리
     for dataset in datasets:
         message_uuid = dataset.get("messageUUID")
-        if not dpo_pre_datasets[message_uuid]:
+        if message_uuid not in dpo_pre_datasets:
+            print("새로 생성")
             dpo_pre_datasets[message_uuid] = {}
 
         sender_type = dataset.get("sender_type")
@@ -32,7 +33,7 @@ def process_training_data(tokenizer, datasets: list):
         "rejected": []
     }
 
-    for uuid, data in datasets.items():
+    for uuid, data in dpo_pre_datasets.items():
         column_oriented_data["question"].append(data["question"])
         column_oriented_data["chosen"].append(data["chosen"])
         column_oriented_data["rejected"].append(data["rejected"])
@@ -66,11 +67,13 @@ def process_training_data(tokenizer, datasets: list):
         }
 
     # 가져온 데이터를 학습용으로 전처리하기
-    original_columns = dpo_dataset.columns_names
+    original_columns = dpo_dataset.column_names
+
+    print(dpo_dataset)
 
     dpo_dataset = dpo_dataset.map(
         return_prompt_and_responses,
-        batched=True,
+        # batched=True,
         remove_columns=original_columns
     )
 

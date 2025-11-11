@@ -34,14 +34,16 @@ async def train(request: TrainRequest, tokenizer=Depends(get_tokenizer_2)):
             
             try:
                 # 모델 성능평가 => HAERAE Benchmark 사용하기 + RAG 성능평가
-                result = evaluate_model(base_settings.base_model)
-
-                # v_latest 모델명 변경하기
-                total_version_number = len([name for name in os.listdir(base_settings.base_model) if name.startswith("v_")])
+                print("[START] 성능 평가")
+                result = evaluate_model(base_settings.base_model + "/midm")
+                print("[COMPLETED] 성능 평가 완료")
                 
-                os.rename(base_settings.base_model + "/v_latest", base_settings.base_model + f"/v_{total_version_number:03d}")
+                os.rename(base_settings.base_model + "/midm", base_settings.base_model + "/midm_pre")
+                print("기존 모델 /midm을 /midm_pre로 변경 완료")
+
                 # 새로운 모델을 v_latest로 변경하기
-                os.rename(base_settings.base_model + "/dpo_model", base_settings.base_model + "/v_latest")
+                os.rename(base_settings.base_model + "/dpo_model", base_settings.base_model + "/midm")
+                print("새로운 모델 /dpo_model을 /midm으로 변경")
 
                 return {"is_completed": result}
             
