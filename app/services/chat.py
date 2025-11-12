@@ -12,10 +12,10 @@ load_dotenv()
 def get_sampling_params(prompt_type: str) -> SamplingParams:
     """prompt_type에 따라 SamplingParams 객체를 생성합니다."""
     if prompt_type == "chosen":
-        temperature = 0.3
+
         return SamplingParams(
             max_tokens=2048,
-            temperature=temperature,
+            temperature=0.5,
             top_p=0.95,
             seed=42,
             repetition_penalty=1.01,
@@ -25,16 +25,15 @@ def get_sampling_params(prompt_type: str) -> SamplingParams:
         )
 
     elif prompt_type == "rejected":
-        temperature = 0.9
+
         return SamplingParams(
             max_tokens=2048,
-            temperature=temperature,
+            temperature=1.0,
             top_p=0.95,
             seed=42,
             repetition_penalty=1.01,
             frequency_penalty=0.2,
-            presence_penalty=0.1,
-            output_kind=RequestOutputKind.DELTA,
+            presence_penalty=0.1
         )
 
 def get_router_sampling_params(tokenizer) -> SamplingParams:
@@ -98,12 +97,12 @@ async def find_question_type(llm_engine_2, tokenizer_2):
     return router_chain
 
 
-def stream_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokenizer_2, prompt_type, question_type):
+def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokenizer_2, question_type, prompt_type="chosen"):
     """
     Langchain LCEL을 사용하여 vLLM 스트리밍 체인을 구성합니다.
         llm_engine: vllm을 통한 llm 모델 서빙 엔진
         tokenizer: llm에 알맞은 tokenizer
-        prompt_type: chosen or rejected
+        prompt_type: chosen
     """
 
     def build_prompt_with_qwen_template(user_info: dict) -> str:
@@ -217,6 +216,159 @@ def stream_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokenizer_2, p
 
             if request_output.finished:
                 return
+
+    if question_type in ["code", "algorithm"]:        
+        qwen_chain = (
+            RunnableParallel(
+                prompt=make_prompt_qwen,
+                message_uuid=lambda x: x["message_uuid"]
+            )
+            | RunnableLambda(call_vllm_engine_1)
+        )
+        return qwen_chain
+
+    elif question_type in ["ssafy", "general"]:
+        llama_chain = (
+            RunnableParallel(
+                prompt=make_prompt_llama,
+                message_uuid=lambda x: x["message_uuid"]
+            )
+            | RunnableLambda(call_vllm_engine_2)
+        )
+
+        return llama_chain
+
+    else:
+        # 예상하지 못한 타입의 경우 기본값으로 general 처리
+        print(f"⚠️ Unknown question_type: {question_type}, defaulting to general")
+        llama_chain = (
+            RunnableParallel(
+                prompt=make_prompt_llama,
+                message_uuid=lambda x: x["message_uuid"]
+            )
+            | RunnableLambda(call_vllm_engine_2)
+        )
+        return llama_chain
+    
+
+def generate_rejected_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokenizer_2, question_type, prompt_type="rejected"):
+    """
+    Langchain LCEL을 사용하여 vLLM 스트리밍 체인을 구성합니다.
+        llm_engine: vllm을 통한 llm 모델 서빙 엔진
+        tokenizer: llm에 알맞은 tokenizer
+        prompt_type: rejected
+    """
+    def build_prompt_with_qwen_template(user_info: dict) -> str:
+        """
+        user_info 딕셔너리를 받아 Chat Template을 적용한 최종 프롬프트를 생성합니다.
+            x: {
+                "service_prompt": str
+                "question" : str,
+                "history": str,
+                "context": str,
+                "personal_prompt": str
+            }
+        """
+        # 입력 데이터 타입 강제 변환 및 기본값 설정
+        service_prompt = str(user_info.get("service_prompt", ""))
+        question = str(user_info.get("question", ""))
+        history = str(user_info.get("history", ""))
+        context = str(user_info.get("context", ""))
+        personal_prompt = str(user_info.get("personal_prompt", ""))
+
+        system_prompt = (
+            basic_prompt +
+            service_prompt + 
+            "\n---\n[사용자 지침]\n" + personal_prompt + 
+            "\n\n[History]\n" + history + 
+            "\n\n[Context]\n" + context +
+            "\n"
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question},
+        ]
+
+        return tokenizer_1.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+    
+    def build_prompt_with_llama_template(user_info: dict) -> str:
+        """
+        user_info 딕셔너리를 받아 Chat Template을 적용한 최종 프롬프트를 생성합니다.
+            x: {
+                "service_prompt": str
+                "question" : str,
+                "history": str,
+                "context": str,
+                "personal_prompt": str
+            }
+        """
+        # 입력 데이터 타입 강제 변환 및 기본값 설정
+        service_prompt = str(user_info.get("service_prompt", ""))
+        question = str(user_info.get("question", ""))
+        history = str(user_info.get("history", ""))
+        context = str(user_info.get("context", ""))
+        personal_prompt = str(user_info.get("personal_prompt", ""))
+
+        system_prompt = (
+            basic_prompt +
+            service_prompt + 
+            "\n---\n[사용자 지침]\n" + personal_prompt + 
+            "\n\n[History]\n" + history + 
+            "\n\n[Context]\n" + context +
+            "\n"
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question},
+        ]
+
+        return tokenizer_2.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+    
+    make_prompt_qwen = RunnableLambda(build_prompt_with_qwen_template)
+
+    make_prompt_llama = RunnableLambda(build_prompt_with_llama_template)
+
+    async def call_vllm_engine_1(inputs: dict):
+        """vLLM Qwen 엔진을 호출하여 비선호 답변을 반환한다."""
+        request_id = inputs.get("message_uuid", "")
+        prompt = inputs.get("prompt", "")
+        sampling_params = get_sampling_params(prompt_type)
+        result_generator = llm_engine_1.generate(prompt=prompt, sampling_params=sampling_params, request_id=request_id)
+
+        async for request_output in result_generator:
+            if request_output.outputs:
+                result = request_output.outputs[0].text
+            
+            if request_output.finished:
+                break
+
+        return result
+    
+    async def call_vllm_engine_2(inputs: dict):
+        """vLLM Llama 엔진을 호출하여 비선호 답변을 반환한다."""
+        request_id = inputs.get("message_uuid", "")
+        prompt = inputs.get("prompt", "")
+        sampling_params = get_sampling_params(prompt_type)
+        result_generator = llm_engine_2.generate(prompt=prompt, sampling_params=sampling_params, request_id=request_id)
+
+        async for request_output in result_generator:
+            if request_output.outputs:
+                result = request_output.outputs[0].text
+            
+            if request_output.finished:
+                break
+
+        return result
 
     if question_type in ["code", "algorithm"]:        
         qwen_chain = (
