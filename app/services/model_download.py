@@ -35,8 +35,8 @@ def download_and_save(model_id: str, save_dir: str):
 #     save_dir="./local-models/Llama-3.1-Korean-8B-Instruct"
 # )
 
-# # ===== Midm-2.0-Base-Instruct =====
-# download_and_save(
-#     model_id="K-intelligence/Midm-2.0-Base-Instruct",
-#     save_dir="./Midm-2.0-Base-Instruct"
-# )
+# ===== Midm-2.0-Base-Instruct =====
+download_and_save(
+    model_id="meta-llama/Llama-3.2-1B-Instruct",
+    save_dir="./local-models/Llama-3.2-1B-Instruct"
+)

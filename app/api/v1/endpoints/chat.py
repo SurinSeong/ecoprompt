@@ -4,16 +4,18 @@ from fastapi.responses import StreamingResponse
 from fastapi.exceptions import HTTPException
 
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.services.chat import stream_response
-from app.models.llm_loader import get_llm, get_tokenizer
-from app.models.vectordb_loader import get_vector_store
+from app.services.chat import stream_chosen_response_vllm, generate_rejected_response_vllm, find_question_type
+from app.services.routing import parse_router_response
+from app.models.llm_loader import get_llm_engine_1, get_llm_engine_2, get_tokenizer_1, get_tokenizer_2
+# from app.models.vectordb_loader import get_vector_store
 from app.models.mongodb_loader import get_mongodb
 from app.services.use_mongodb import find_chatting_id, get_chat_history
+from app.models.prompt_template import chosen_prompt, rejected_prompt
 
 router = APIRouter()
 
-@router.post("")
-async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get_tokenizer), vector_store=Depends(get_vector_store), mongo_client=Depends(get_mongodb)):
+@router.post("/vllm")
+async def chat_vllm(request: ChatRequest, llm_engine_1=Depends(get_llm_engine_1), llm_engine_2=Depends(get_llm_engine_2), tokenizer_1=Depends(get_tokenizer_1), tokenizer_2=Depends(get_tokenizer_2), mongo_client=Depends(get_mongodb)):
     """
     스트림 답변 제공
     """
@@ -35,93 +37,71 @@ async def chat(request: ChatRequest, llm=Depends(get_llm), tokenizer=Depends(get
         print(f"[채팅 번호] {chatting_id}\n=> 채팅 기록이 없습니다.")
         chat_history = ""
 
+    # 질문 라우팅
+    router_chain = await find_question_type(llm_engine_2=llm_engine_2, tokenizer_2=tokenizer_2)
+    router_payload = {
+        "message_uuid": message_uuid,
+        "question": user_input,
+    }
+    print(router_payload)
+
+    router_response = await router_chain.ainvoke(router_payload)
+    print(f"[ROUTER]\n{router_response}")
+
+    question_type = parse_router_response(router_response)
+
     # 답변 생성 체인
-    chain = stream_response(vector_store=vector_store, llm=llm, tokenizer=tokenizer)
-    
-    payload = {
+    chosen_chain = stream_chosen_response_vllm(llm_engine_1=llm_engine_1, llm_engine_2=llm_engine_2, tokenizer_1=tokenizer_1, tokenizer_2=tokenizer_2, prompt_type="chosen", question_type=question_type)
+    chosen_payload = {
+        "message_uuid": message_uuid,
+        "service_prompt": chosen_prompt,
         "personal_prompt": personal_prompt,
         "question": user_input,
         "history": chat_history,
         "context": ""    # 벡터 DB 연결해봐야 함.
     }
 
+    rejected_chain = generate_rejected_response_vllm(llm_engine_1=llm_engine_1, llm_engine_2=llm_engine_2, tokenizer_1=tokenizer_1, tokenizer_2=tokenizer_2, prompt_type="rejected", question_type=question_type)
+    rejected_payload = {
+        "message_uuid": message_uuid,
+        "service_prompt": rejected_prompt,
+        "personal_prompt": personal_prompt,
+        "question": user_input,
+        "history": chat_history,
+        "context": ""    # 벡터 DB 연결해봐야 함.
+    }
+    
+            
     async def event_generator():
-        state = "SEEK_OPEN_CHOSEN"
         chosen_response = ""
-        rejected_response = ""
 
-        OPEN_C  = "<CHOSEN>"
-        CLOSE_C = "</CHOSEN>"
-        OPEN_R  = "<REJECTED>"
-        CLOSE_R = "</REJECTED>"
-        
-        sequence_id = -1
+        sequence_id = 0
+
         try:
-            async for chunk in chain.astream(payload):
-                # print(chunk)
+            yield f"data: {ChatResponse(sequence_id=sequence_id, token='START').model_dump_json()}\n\n"
+            
+            async for chunk in chosen_chain.astream(chosen_payload):
+
                 if not chunk:
                     continue
                 
                 sequence_id += 1
+                chosen_response += chunk
 
-                if (state == "SEEK_OPEN_CHOSEN") and (OPEN_C in chunk):
-                    state = "FOUND_CHOSEN"
-                    yield f"data: {ChatResponse(sequence_id=sequence_id, token="START").model_dump_json()}\n\n"
-                    continue
-                
+                yield f"data: {ChatResponse(sequence_id=sequence_id, token=chunk).model_dump_json()}\n\n"
 
-                if (state == "FOUND_CHOSEN") and (OPEN_C not in chunk) and (CLOSE_C not in chunk):
-                    chosen_response += chunk
-                    yield f"data: {ChatResponse(sequence_id=sequence_id, token=chunk).model_dump_json()}\n\n"
-                    continue
-
-                
-                if (state == "FOUND_CHOSEN") and (OPEN_C not in chunk) and (CLOSE_C in chunk):
-                    state = "END_CHOSEN"
-                    if chunk.strip() != CLOSE_C:
-                        chunk = chunk.replace(CLOSE_C, "")
-                        yield f"data: {ChatResponse(sequence_id=sequence_id, token=chunk).model_dump_json()}\n\n"
-                        yield f"data: {ChatResponse(sequence_id=sequence_id+1, token='DONE').model_dump_json()}\n\n"
-                        continue
-
-                    else:
-                        yield f"data: {ChatResponse(sequence_id=sequence_id, token='DONE').model_dump_json()}\n\n"
-                        continue
-
-
-                if (state == "END_CHOSEN") and (OPEN_R in chunk):
-                    state = "FOUND_REJECTED"
-                    continue
-
-
-                if (state == "FOUND_REJECTED") and (OPEN_R not in chunk) and (CLOSE_R not in chunk):
-                    # print(chunk)
-                    rejected_response += chunk
-                    continue
-
-
-                if (state == "FOUND_REJECTED") and (OPEN_R not in chunk) and (CLOSE_R in chunk):
-                    break
-
+            yield f"data: {ChatResponse(sequence_id=sequence_id+1, token='DONE').model_dump_json()}\n\n"
             print(f"[CHOSEN]\n{chosen_response}")
-            print(f"[REJECTED]\n{rejected_response}")
+        
+            rejected_response = await rejected_chain.ainvoke(rejected_payload)
+            
 
             yield f"data: {ChatResponse(sequence_id=-1, token=rejected_response).model_dump_json()}\n\n"
-        
+            print(f"[REJECTED]\n{rejected_response}")
+
         except Exception as e:
-            # print(chunk)
+
             # 오류 시 스트림 종료
             yield f"data: [ERROR] {type(e).__name__}: {e}\n\n"
 
-        
-
-        # # rejected response 저장하기
-        # if chatting_id:
-        #     result = await save_rejected_response(mongo_client, int(chatting_id), message_uuid, rejected_response)
-        #     if result:
-        #         print(f"[답변 저장] 완료")
-        # else:
-        #     print("chatting_id가 없어 답변을 저장할 수 없습니다.")
-
     return StreamingResponse(event_generator(), media_type="text/event-stream")
-
