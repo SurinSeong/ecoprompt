@@ -3,7 +3,7 @@ from langchain_core.runnables import RunnableLambda, RunnableParallel
 from vllm.sampling_params import RequestOutputKind
 from vllm import SamplingParams
 
-from app.models.prompt_template import routing_prompt
+from app.models.prompt_template import routing_prompt, basic_prompt
 
 
 load_dotenv()
@@ -125,6 +125,7 @@ def stream_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokenizer_2, p
         personal_prompt = str(user_info.get("personal_prompt", ""))
 
         system_prompt = (
+            basic_prompt +
             service_prompt + 
             "\n---\n[사용자 지침]\n" + personal_prompt + 
             "\n\n[History]\n" + history + 
@@ -162,6 +163,7 @@ def stream_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokenizer_2, p
         personal_prompt = str(user_info.get("personal_prompt", ""))
 
         system_prompt = (
+            basic_prompt +
             service_prompt + 
             "\n---\n[사용자 지침]\n" + personal_prompt + 
             "\n\n[History]\n" + history + 
@@ -216,7 +218,7 @@ def stream_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokenizer_2, p
             if request_output.finished:
                 return
 
-    if question_type == "code" or question_type == "algorithm":        
+    if question_type in ["code", "algorithm"]:        
         qwen_chain = (
             RunnableParallel(
                 prompt=make_prompt_qwen,
@@ -226,7 +228,7 @@ def stream_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokenizer_2, p
         )
         return qwen_chain
 
-    if question_type == "ssafy" or question_type == "general":
+    elif question_type in ["ssafy", "general"]:
         llama_chain = (
             RunnableParallel(
                 prompt=make_prompt_llama,
@@ -235,4 +237,16 @@ def stream_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokenizer_2, p
             | RunnableLambda(call_vllm_engine_2)
         )
 
+        return llama_chain
+
+    else:
+        # 예상하지 못한 타입의 경우 기본값으로 general 처리
+        print(f"⚠️ Unknown question_type: {question_type}, defaulting to general")
+        llama_chain = (
+            RunnableParallel(
+                prompt=make_prompt_llama,
+                message_uuid=lambda x: x["message_uuid"]
+            )
+            | RunnableLambda(call_vllm_engine_2)
+        )
         return llama_chain

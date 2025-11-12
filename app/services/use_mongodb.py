@@ -1,6 +1,5 @@
 from langchain_core.runnables import RunnableLambda
 import pymongo
-from pymongo import MongoClient
 
 # MongoDB에서 사용자 대화 내용 가져와서 요약하는 로직
 def summarize_history(chat_history, tokenizer, llm):
@@ -73,11 +72,12 @@ async def get_chat_history(mongo_client, chatting_id: int):
         # 답변 성공한 AI 메시지 불러오기
         ai_messages = collection.find({"chatting_id": chatting_id, "sender_type": "AI", "status": "COMPLETED"}).sort("created_at", pymongo.DESCENDING)
         ai_messages = await ai_messages.to_list(3)
-        for ai_message in ai_messages:
+        # 최신 메시지가 가장 아래에 나올 수 있도록 수정함.
+        for ai_message in ai_messages[::-1]:
             message_uuid = ai_message.get("messageUUID", None)
             if message_uuid:
-                user_message = collection.find_one({"chatting_id": chatting_id, "sender_type": "USER", "status": "RECEIVED", "messageUUID": str(message_uuid)})
-                chat_history += f"[USER] {user_message}\n[AI] {ai_message}"
+                user_message = await collection.find_one({"chatting_id": chatting_id, "sender_type": "USER", "status": "RECEIVED", "messageUUID": str(message_uuid)})
+                chat_history += f"[USER] ({user_message["created_at"]}) {user_message["content"]}\n[AI] ({ai_message["created_at"]}) {ai_message["content"]}\n"
 
         return chat_history
     
