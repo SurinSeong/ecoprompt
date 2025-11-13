@@ -1,4 +1,4 @@
-import json
+import asyncio
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from fastapi.exceptions import HTTPException
@@ -63,7 +63,7 @@ async def chat_vllm(request: ChatRequest, llm_engine_1=Depends(get_llm_engine_1)
 
     rejected_chain = generate_rejected_response_vllm(llm_engine_1=llm_engine_1, llm_engine_2=llm_engine_2, tokenizer_1=tokenizer_1, tokenizer_2=tokenizer_2, prompt_type="rejected", question_type=question_type)
     rejected_payload = {
-        "message_uuid": message_uuid,
+        "message_uuid": message_uuid + "-rejected",
         "service_prompt": rejected_prompt,
         "personal_prompt": personal_prompt,
         "question": user_input,
@@ -80,6 +80,9 @@ async def chat_vllm(request: ChatRequest, llm_engine_1=Depends(get_llm_engine_1)
         try:
             yield f"data: {ChatResponse(sequence_id=sequence_id, token='START').model_dump_json()}\n\n"
             
+            # rejected 생성을 백그라운드에서 시작
+            rejected_task = asyncio.create_task(rejected_chain.ainvoke(rejected_payload))
+
             async for chunk in chosen_chain.astream(chosen_payload):
 
                 if not chunk:
@@ -93,8 +96,7 @@ async def chat_vllm(request: ChatRequest, llm_engine_1=Depends(get_llm_engine_1)
             yield f"data: {ChatResponse(sequence_id=sequence_id+1, token='DONE').model_dump_json()}\n\n"
             print(f"[CHOSEN]\n{chosen_response}")
         
-            rejected_response = await rejected_chain.ainvoke(rejected_payload)
-            
+            rejected_response = await rejected_task
 
             yield f"data: {ChatResponse(sequence_id=-1, token=rejected_response).model_dump_json()}\n\n"
             print(f"[REJECTED]\n{rejected_response}")
