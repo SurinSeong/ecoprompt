@@ -12,13 +12,16 @@ class TotalSettings(BaseSettings):
     # MongoDB 관련
     mongo_url: str = os.getenv("MONGO_URL")
 
-    # samplingparams
-    temperature: float = 0.3
-    top_p: float = 0.95
+    max_concurrent_requests: int = int(os.getenv("MAX_CONCURRENT_REQUESTS", "5"))
+    request_timeout: int = int(os.getenv("REQUEST_TIMEOUT", "300"))    # 초
 
-    # vllm
-    batch_size: int = 1
-    block_size: int = 16384
+    # # samplingparams
+    # temperature: float = 0.3
+    # top_p: float = 0.95
+
+    # # vllm
+    # batch_size: int = 1
+    # block_size: int = 16384
 
 
 
