@@ -104,17 +104,19 @@ async def save_rejected_response(mongo_client, chatting_id: int, message_uuid: s
         raise Exception(f"❌ Failed to save rejected response: {e}")
         
 
-# import os
-# from dotenv import load_dotenv
+import os
+from dotenv import load_dotenv
 
-# load_dotenv()
+from pymongo import MongoClient
 
-# client = MongoClient(
-#     os.getenv("MONGO_URL")
-# )
-# db = client["eco_prompt"]
-# collection = db["message"]
-# messages = collection.find({"chatting_id": 5, "sender_type": "TRAINING"})
-# # print(messa)
-# for message in messages:
-#     print(message)
+load_dotenv()
+
+client = MongoClient(
+    os.getenv("MONGO_URL")
+)
+db = client["eco_prompt"]
+collection = db["message"]
+messages = collection.find({"chatting_id": 162, "sender_type": "USER"})
+# print(messa)
+for message in messages:
+    print(message)

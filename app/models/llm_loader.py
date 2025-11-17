@@ -12,6 +12,7 @@ MODEL_NAME_1 = base_settings.base_model + "/qwen"
 # MODEL_NAME_1 = "./local-models/Qwen2.5-Coder-0.5B-Instruct"
 MODEL_NAME_2 = base_settings.base_model + "/midm"
 # MODEL_NAME_2 = "./local-models/Midm-2.0-Base-Instruct"
+# MODEL_NAME_2 = "./local-models/kanana-1.5-8b-instruct"
 
 
 llm_tokenizer_1: Optional[AutoTokenizer] = None
@@ -23,7 +24,7 @@ llm_engine_2: Optional[AsyncLLM] = None
 def load_tokenizers():
     """
     토크나이저 로드하기
-    1: qwen, 2: llama
+    1: qwen, 2: midm
     """
     global llm_tokenizer_1, llm_tokenizer_2
     
@@ -67,7 +68,7 @@ def get_tokenizer_2() -> AutoTokenizer:
     if llm_tokenizer_2 is None:
         raise RuntimeError("Tokenizer 2 is not initialized.")
     
-    llm_tokenizer_2.pos_token = llm_tokenizer_2.eos_token
+    llm_tokenizer_2.pad_token = llm_tokenizer_2.eos_token
     llm_tokenizer_2.padding_side = "right"
     
     return llm_tokenizer_2
@@ -103,7 +104,7 @@ async def load_llm_engines():
         except Exception as e:
             print(f"❌ Failed to load LLM Engine 1: {e}")
 
-    # 2. Llama-Korean-3.1-8B-Instruct
+    # 2. Midm-2.0-Base-Instruct
     if llm_engine_2 is None:
         print(f"⏳ Starting LLM Engine 2 Load ({MODEL_NAME_2})...")
 
@@ -114,7 +115,7 @@ async def load_llm_engines():
                 gpu_memory_utilization=0.5,
                 quantization="bitsandbytes",
                 max_model_len=8192,
-                tensor_parallel_size=1
+                tensor_parallel_size=1,
             )
 
             llm_engine_2 = AsyncLLM.from_engine_args(engine_args_2)
