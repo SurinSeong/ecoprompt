@@ -1,7 +1,6 @@
 from datetime import datetime
 from json import JSONDecoder
 from io import BytesIO
-import os
 import json
 import re
 import boto3
@@ -277,7 +276,7 @@ def create_pdf_document(
         # PDF 빌드
         doc.build(story)
 
-        # 버터에서 PDF 바이트 꺼내기
+        # 버퍼에서 PDF 바이트 꺼내기
         buffer.seek(0)
         pdf_bytes = buffer.getvalue()
 
@@ -443,7 +442,7 @@ def parse_qwen_tool_call(text: str) -> list:
     return tool_calls
 
 
-def execute_tool(tool_name: str, arguments: dict) -> str:
+def execute_tool(tool_name: str, arguments: dict, msg_uuid: str) -> str:
     """Tool 실행"""
     if tool_name == "save_as_pdf":
         try:
@@ -454,7 +453,7 @@ def execute_tool(tool_name: str, arguments: dict) -> str:
                 return "❌ PDF에 포함할 내용이 없습니다."
 
             filename = create_pdf_document(title, content)
-            return {"type": "FILE", "url": "", "name": filename}
+            return {"type": "FILE", "url": "", "originalFileName": filename, "savedFileName": msg_uuid + ".pdf"}
         
         except Exception as e:
             return f"❌ PDF 생성 실패: {str(e)}"

@@ -243,8 +243,8 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
         tool_calls = parse_qwen_tool_call(full_response)
         if tool_calls:
             for tool_call in tool_calls:
-                result = execute_tool(tool_call["name"], tool_call["arguments"])
-                yield f"\n\n{result}"
+                result = execute_tool(tool_call["name"], tool_call["arguments"], request_id)
+                yield result
     
     
     async def call_vllm_engine_2(inputs: dict):
@@ -292,8 +292,8 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
         tool_calls = parse_midm_tool_call(full_response)
         if tool_calls:
             for tool_call in tool_calls:
-                result = execute_tool(tool_call["name"], tool_call["arguments"])
-                yield f"\n\n{result}"
+                result = execute_tool(tool_call["name"], tool_call["arguments"], request_id)
+                yield result
 
 
     if question_type in ["code", "algorithm", "math"]:        
