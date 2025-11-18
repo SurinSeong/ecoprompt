@@ -72,12 +72,18 @@ async def get_chat_history(mongo_client, chatting_id: int):
         # 답변 성공한 AI 메시지 불러오기
         ai_messages = collection.find({"chatting_id": chatting_id, "sender_type": "AI", "status": "COMPLETED"}).sort("created_at", pymongo.DESCENDING)
         ai_messages = await ai_messages.to_list(3)
+
         # 최신 메시지가 가장 아래에 나올 수 있도록 수정함.
         for ai_message in ai_messages[::-1]:
+
             message_uuid = ai_message.get("messageUUID", None)
+
             if message_uuid:
-                user_message = await collection.find_one({"chatting_id": chatting_id, "sender_type": "USER", "status": "RECEIVED", "messageUUID": str(message_uuid)})
-                chat_history += f"[USER] ({user_message["created_at"]}) {user_message["content"]}\n[AI] ({ai_message["created_at"]}) {ai_message["content"]}\n"
+                user_message = await collection.find_one({"chatting_id": chatting_id, "sender_type": "USER", "status": "COMPLETED", "messageUUID": str(message_uuid)})
+                if user_message:
+                    chat_history += f"[USER] ({user_message["created_at"]}) {user_message["content"]}\n[AI] ({ai_message["created_at"]}) {ai_message["content"]}\n"
+                else:
+                    chat_history += f"[AI] ({ai_message["created_at"]}) {ai_message["content"]}\n"
 
         return chat_history
     
@@ -104,19 +110,19 @@ async def save_rejected_response(mongo_client, chatting_id: int, message_uuid: s
         raise Exception(f"❌ Failed to save rejected response: {e}")
         
 
-import os
-from dotenv import load_dotenv
+# import os
+# from dotenv import load_dotenv
 
-from pymongo import MongoClient
+# from pymongo import MongoClient
 
-load_dotenv()
+# load_dotenv()
 
-client = MongoClient(
-    os.getenv("MONGO_URL")
-)
-db = client["eco_prompt"]
-collection = db["message"]
-messages = collection.find({"chatting_id": 162, "sender_type": "USER"})
-# print(messa)
-for message in messages:
-    print(message)
+# client = MongoClient(
+#     os.getenv("MONGO_URL")
+# )
+# db = client["eco_prompt"]
+# collection = db["message"]
+# messages = collection.find({"chatting_id": 50, "sender_type": "AI"})
+# # print(messa)
+# for message in messages:
+#     print(message)

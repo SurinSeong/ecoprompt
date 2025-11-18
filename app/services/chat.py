@@ -3,25 +3,33 @@ from langchain_core.runnables import RunnableLambda, RunnableParallel
 from vllm.sampling_params import RequestOutputKind
 from vllm import SamplingParams
 
-from app.models.prompt_template import routing_prompt, basic_prompt
+from app.models.prompt_template import routing_prompt, basic_prompt, tool_usage_instruction
+from app.services.use_tools import get_tool_definitions, parse_midm_tool_call, parse_qwen_tool_call, execute_tool
 
 
 load_dotenv()
 
 
-def get_sampling_params(prompt_type: str) -> SamplingParams:
+def get_sampling_params(prompt_type: str, question_type: str) -> SamplingParams:
     """prompt_type에 따라 SamplingParams 객체를 생성합니다."""
+    if question_type in ["code", "algorithm", "math"]:
+        stop_tokens = ["<|im_end|>", "<|endoftext|>"]
+
+    elif question_type in ["ssafy", "general"]:
+        stop_tokens = ["<|eot_id|>", "<|end_of_text|>"]
+
     if prompt_type == "chosen":
 
         return SamplingParams(
             max_tokens=2048,
-            temperature=0.4,
+            temperature=0.3,
             top_p=0.95,
             seed=42,
             repetition_penalty=1.01,
             frequency_penalty=0.2,
             presence_penalty=0.1,
             output_kind=RequestOutputKind.DELTA,
+            stop=stop_tokens
         )
 
     elif prompt_type == "rejected":
@@ -33,7 +41,8 @@ def get_sampling_params(prompt_type: str) -> SamplingParams:
             seed=42,
             repetition_penalty=1.01,
             frequency_penalty=0.2,
-            presence_penalty=0.1
+            presence_penalty=0.1,
+            stop=stop_tokens
         )
 
 def get_router_sampling_params(tokenizer) -> SamplingParams:
@@ -65,7 +74,7 @@ async def find_question_type(llm_engine_2, tokenizer_2):
         return tokenizer_2.apply_chat_template(
             messages,
             tokenize=False,
-            add_generation_prompt=True
+            add_generation_prompt=True,
         )
 
     make_prompt_route = RunnableLambda(build_prompt_with_routing_template)
@@ -124,7 +133,8 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
         personal_prompt = str(user_info.get("personal_prompt", ""))
 
         system_prompt = (
-            service_prompt + 
+            tool_usage_instruction + 
+            "\n\n" + service_prompt + 
             "\n---\n[사용자 지침]\n" + personal_prompt + 
             "\n\n[History]\n" + history + 
             "\n\n[Context]\n" + context +
@@ -139,7 +149,8 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
         return tokenizer_1.apply_chat_template(
             messages,
             tokenize=False,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            tools=get_tool_definitions()
         )
     
     def build_prompt_with_llama_template(user_info: dict) -> str:
@@ -161,8 +172,9 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
         personal_prompt = str(user_info.get("personal_prompt", ""))
 
         system_prompt = (
-            basic_prompt +
-            service_prompt + 
+            tool_usage_instruction +
+            "\n\n" + basic_prompt +
+            "\n\n" + service_prompt + 
             "\n---\n[사용자 지침]\n" + personal_prompt + 
             "\n\n[History]\n" + history + 
             "\n\n[Context]\n" + context +
@@ -177,7 +189,8 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
         return tokenizer_2.apply_chat_template(
             messages,
             tokenize=False,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            tools=get_tool_definitions()
         )
     
     make_prompt_qwen = RunnableLambda(build_prompt_with_qwen_template)
@@ -188,33 +201,114 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
         """vLLM Qwen 엔진을 호출하여 비동기 스트리밍을 시작한다."""
         request_id = inputs.get("message_uuid", "")
         prompt = inputs.get("prompt", "")
-        sampling_params = get_sampling_params(prompt_type)
+        sampling_params = get_sampling_params(prompt_type, question_type)
         result_generator = llm_engine_1.generate(prompt=prompt, sampling_params=sampling_params, request_id=request_id)
 
+        full_response = ""
+        sent_length = 0    # 이미 전송한 길이 추적하기
+
         async for request_output in result_generator:
             for completion in request_output.outputs:
                 new_text = completion.text
+
                 if new_text:
-                    yield new_text
+                    full_response += new_text
+
+                    # <tool_call> 태그가 시작되지 않았다면 계속 전송하기
+                    if "<tool_call>" not in full_response[sent_length:]:
+                        # 새로 추가된 부분만 전송
+                        to_send = full_response[sent_length:]
+                        if to_send:
+                            yield to_send
+                            sent_length = len(full_response)
+
+                    # <tool_call> 태그가 감지되면 그 이전까지만 전송
+                    else:
+                        # <tool_call> 이전까지만 전송
+                        tool_call_start = full_response.find("<tool_call>", sent_length)
+                        if tool_call_start > sent_length:
+                            to_send = full_response[sent_length:tool_call_start]
+                            if to_send:
+                                yield to_send
+
+                            sent_length = tool_call_start
+                        
+                        # <tool_call> 부분은 전송하지 않고 넘어간다.
 
             if request_output.finished:
-                return
+                break
+        
+        # </tool_call> 이후 텍스트가 있다면 전송하기
+        if "</tool_call>" in full_response:
+            tool_call_end = full_response.rfind("</tool_call>") + len("</tool_call>")
+            if tool_call_end < len(full_response):
+                remaining = full_response[tool_call_end:].strip()
+                if remaining:
+                    yield f"\n\n{remaining}"
+            
+        # tool calling
+        tool_calls = parse_qwen_tool_call(full_response)
+        if tool_calls:
+            for tool_call in tool_calls:
+                result = execute_tool(tool_call["name"], tool_call["arguments"])
+                yield result
     
     async def call_vllm_engine_2(inputs: dict):
-        """vLLM Qwen 엔진을 호출하여 비동기 스트리밍을 시작한다."""
+        """vLLM Midm 엔진을 호출하여 비동기 스트리밍을 시작한다."""
         request_id = inputs.get("message_uuid", "")
         prompt = inputs.get("prompt", "")
-        sampling_params = get_sampling_params(prompt_type)
+        sampling_params = get_sampling_params(prompt_type, question_type)
         result_generator = llm_engine_2.generate(prompt=prompt, sampling_params=sampling_params, request_id=request_id)
+
+        full_response = ""
+        sent_length = 0    # 이미 전송한 길이 추적하기
 
         async for request_output in result_generator:
             for completion in request_output.outputs:
                 new_text = completion.text
+
                 if new_text:
-                    yield new_text
+                    full_response += new_text
+
+                    # <tool_call> 태그가 시작되지 않았다면 계속 전송하기
+                    if "<tool_call>" not in full_response[sent_length:]:
+                        # 새로 추가된 부분만 전송
+                        to_send = full_response[sent_length:]
+                        if to_send:
+                            yield to_send
+                            sent_length = len(full_response)
+
+                    # <tool_call> 태그가 감지되면 그 이전까지만 전송
+                    else:
+                        # <tool_call> 이전까지만 전송
+                        tool_call_start = full_response.find("<tool_call>", sent_length)
+                        if tool_call_start > sent_length:
+                            to_send = full_response[sent_length:tool_call_start]
+                            if to_send:
+                                yield to_send
+
+                            sent_length = tool_call_start
+                        
+                        # <tool_call> 부분은 전송하지 않고 넘어간다.
 
             if request_output.finished:
-                return
+                break
+        
+        # </tool_call> 이후 텍스트가 있다면 전송하기
+        if "</tool_call>" in full_response:
+            tool_call_end = full_response.rfind("</tool_call>") + len("</tool_call>")
+            if tool_call_end < len(full_response):
+                remaining = full_response[tool_call_end:].strip()
+                if remaining:
+                    yield f"\n\n{remaining}"
+            
+        # tool calling
+        tool_calls = parse_midm_tool_call(full_response)
+        if tool_calls:
+            for tool_call in tool_calls:
+                result = execute_tool(tool_call["name"], tool_call["arguments"])
+                yield result
+
 
     if question_type in ["code", "algorithm", "math"]:        
         qwen_chain = (
@@ -340,7 +434,7 @@ def generate_rejected_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tok
         """vLLM Qwen 엔진을 호출하여 비선호 답변을 반환한다."""
         request_id = inputs.get("message_uuid", "")
         prompt = inputs.get("prompt", "")
-        sampling_params = get_sampling_params(prompt_type)
+        sampling_params = get_sampling_params(prompt_type, question_type)
         result_generator = llm_engine_1.generate(prompt=prompt, sampling_params=sampling_params, request_id=request_id)
 
         async for request_output in result_generator:
@@ -356,7 +450,7 @@ def generate_rejected_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tok
         """vLLM Llama 엔진을 호출하여 비선호 답변을 반환한다."""
         request_id = inputs.get("message_uuid", "")
         prompt = inputs.get("prompt", "")
-        sampling_params = get_sampling_params(prompt_type)
+        sampling_params = get_sampling_params(prompt_type, question_type)
         result_generator = llm_engine_2.generate(prompt=prompt, sampling_params=sampling_params, request_id=request_id)
 
         async for request_output in result_generator:
