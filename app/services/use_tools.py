@@ -9,8 +9,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
-from langchain.tools import tool
-
 from app.services.define_pdf_style import setup_korean_font, set_pdf_style
 
 
@@ -143,184 +141,6 @@ def create_pdf_from_conversation(
     except Exception as e:
         print(f"❌ PDF 생성 실패: {e}")
         raise
-
-
-def create_pdf_from_text(
-    title: str,
-    content: str,
-    output_path: str = None
-) -> str:
-    """
-    단순 텍스트를 PDF로 생성
-    
-    Args:
-        title: PDF 제목
-        content: 본문 내용
-        output_path: PDF 저장 경로
-    
-    Returns:
-        생성된 PDF 파일 경로
-    """
-    try:
-        if output_path is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_dir = "generated_pdfs"
-            os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, f"document_{timestamp}.pdf")
-        
-        doc = SimpleDocTemplate(output_path, pagesize=A4)
-        
-        korean_font = setup_korean_font()
-        styles = getSampleStyleSheet()
-        
-        styles.add(ParagraphStyle(
-            name='KoreanTitle',
-            parent=styles['Heading1'],
-            fontName=korean_font,
-            fontSize=18,
-            spaceAfter=30
-        ))
-        
-        styles.add(ParagraphStyle(
-            name='KoreanBody',
-            parent=styles['BodyText'],
-            fontName=korean_font,
-            fontSize=11,
-            leading=16
-        ))
-
-        story = []
-        story.append(Paragraph(title, styles['KoreanTitle']))
-        story.append(Spacer(1, 0.3*inch))
-        
-        # 내용을 문단별로 나눔
-        paragraphs = content.split('\n')
-        for para in paragraphs:
-            if para.strip():
-                story.append(Paragraph(para, styles['KoreanBody']))
-                story.append(Spacer(1, 0.2*inch))
-        
-        doc.build(story)
-        
-        print(f"✅ PDF 생성 완료: {output_path}")
-        return output_path
-    
-    except Exception as e:
-        print(f"❌ PDF 생성 실패: {e}")
-        raise
-
-
-def create_mr_template_pdf(
-    content: str,
-    output_dir: str = "./data"
-) -> str:
-    """
-    MR(Merge Request) 템플릿을 PDF로 생성
-
-    Args:
-        content: LLM이 생성한 MR 템플릿 내용 (마크다운 형식)
-        output_dir: PDF 저장 디렉토리
-
-    Returns:
-        생성된 PDF 파일 경로
-    """
-    try:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"MR_Template_{timestamp}.pdf"
-        output_path = os.path.abspath(os.path.join(output_dir, filename))
-
-        doc = SimpleDocTemplate(output_path, pagesize=A4)
-        korean_font = setup_korean_font()
-        styles = getSampleStyleSheet()
-
-        # 스타일 정의
-        # 1) Title
-        styles.add(ParagraphStyle(
-            name="KoreanTitle",
-            fontName=korean_font,
-            fontSize=20,
-            spaceAfter=20,
-            alignment=1    # 가운데
-        ))
-
-        # 2) Heading
-        styles.add(ParagraphStyle(
-            name="KoreanHeading",
-            fontName=korean_font,
-            fontSize=14,
-            spaceAfter=12,
-            spaceBefore=12,
-            textColor="#2C3E50"
-        ))
-
-        # 3) Body
-        styles.add(ParagraphStyle(
-            name="KoreanBody",
-            fontName=korean_font,
-            fontSize=10,
-            leading=16,
-            leftIndent=10
-        ))
-
-        # 내용 작성할 리스트
-        story = []
-
-        # 제목
-        story.append(Paragraph("Merge Request Template", styles["KoreanTitle"]))
-        story.append(Spacer(1, 0.3*inch))
-
-        # 생성 시간
-        creation_time = datetime.now().strftime("%Y년 %m월 %d일 %H:%M:%S")
-        story.append(Paragraph(f"생성 시간: {creation_time}", styles["KoreanBody"]))
-        story.append(Spacer(1, 0.3*inch))
-
-        # 내용 파싱
-        lines = content.split("\n")
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                story.append(Spacer(1, 0.1*inch))
-                continue
-
-            # HTML 특수 문자 이스케이프
-            line = line.replace("&", "&amp;")
-            line = line.replace("<", "&lt;")
-            line = line.replace(">", "&gt;")
-
-            # 마크다운 헤딩 처리
-            if line.startswith("###"):
-                text = line.replace("###", "").strip()
-                story.append(Paragraph(f"<b>{text}</b>", styles["KoreanHeading"]))
-            
-            elif line.startswith("##"):
-                text = line.replace('##', '').strip()
-                story.append(Paragraph(f"<b>{text}</b>", styles['KoreanHeading']))
-
-            elif line.startswith("#"):
-                text = line.replace('#', '').strip()
-                story.append(Paragraph(f"<b>{text}</b>", styles['KoreanTitle']))
-
-            # 리스트 처리
-            elif line.startswith("- ") or line.startswith("* "):
-                text = line[2:].strip()
-                story.append(Paragraph(f"• {text}", styles['KoreanBody']))
-
-            # 볼드 처리
-            elif "**" in line:
-                text = line.replace("**", "<b>").replace("**", "</b>")
-                story.append(Paragraph(text, styles["KoreanBody"]))
-
-            else:
-                story.append(Paragraph(line, styles["KoreanBody"]))
-
-        doc.build(story)
-
-        print(f"✅ MR 템플릿 PDF 생성 완료: {output_path}")
-
-    except Exception as e:
-        print(f"❌ PDF 생성 실패: {e}")
-        raise Exception(f"PDF 생성 중 오류: {str(e)}")
 
 
 # pdf 생성 함수
@@ -477,7 +297,7 @@ def get_tool_definitions():
                     "사용자가 요청한 내용을 PDF 문서로 저장합니다. "
                     "MR 템플릿, 학습 자료, 대화 정리 등 어떠 내용이든 PDF로 만들 수 있습니다. "
                     "**중요**: 사용자가 '대화 기록', '지금까지의 대화', '대화 내용' 등을 PDF로 만들어 달라고 하면, "
-                    "반드시 [History]에 있는 이전 대화 내용을 분석해서 요약한 후 content에 포함하세요."
+                    "반드시 [History]에 있는 이전 대화 내용을 사용자의 질문에 알맞게 content에 포함하세요."
                 ),
                 "parameters": {
                     "type": "object",
@@ -492,7 +312,7 @@ def get_tool_definitions():
                                 "PDF에 포함될 전체 내용 (마크다운 형식 권장). "
                                 "**중요 사항**: "
                                 "1. 제목(# 제목)은 포함하지 마세요. ## 섹션 제목부터 시작하세요. "
-                                "2. 사용자가 '대화 기록'을 요청하면 [History]의 내용을 분석하고 요약하여 작성하세요. "
+                                "2. 사용자가 '대화 기록'을 요청하면 [History]의 내용을 질문에 알맞게 작성하세요. "
                                 "3. 마크다운 형식을 사용하세요: 헤딩(##, ###), 리스트(-, *), 볼드(**텍스트**) 등. "
                                 "4. 구조화된 형태로 작성하세요 (섹션별로 나누기)."
                             )

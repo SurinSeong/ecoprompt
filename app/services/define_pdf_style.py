@@ -7,7 +7,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 def setup_korean_font():
     """한글 폰트 설정"""
     try:
-        # Windows의 맑은 고딕 폰트 사용하기
+        # Linux의 맑은 고딕 폰트 사용하기
         font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
         if os.path.exists(font_path):
             pdfmetrics.registerFont(TTFont("NanumGothic", font_path))

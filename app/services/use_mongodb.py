@@ -71,7 +71,7 @@ async def get_chat_history(mongo_client, chatting_id: int):
         # 채팅 기록을 최신에서 과거순으로 불러온다.
         # 답변 성공한 AI 메시지 불러오기
         ai_messages = collection.find({"chatting_id": chatting_id, "sender_type": "AI", "status": "COMPLETED"}).sort("created_at", pymongo.DESCENDING)
-        ai_messages = await ai_messages.to_list(3)
+        ai_messages = await ai_messages.to_list(5)
 
         # 최신 메시지가 가장 아래에 나올 수 있도록 수정함.
         for ai_message in ai_messages[::-1]:

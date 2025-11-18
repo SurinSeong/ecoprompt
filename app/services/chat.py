@@ -237,21 +237,15 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
 
             if request_output.finished:
                 break
-        
-        # </tool_call> 이후 텍스트가 있다면 전송하기
-        if "</tool_call>" in full_response:
-            tool_call_end = full_response.rfind("</tool_call>") + len("</tool_call>")
-            if tool_call_end < len(full_response):
-                remaining = full_response[tool_call_end:].strip()
-                if remaining:
-                    yield f"\n\n{remaining}"
+    
             
         # tool calling
         tool_calls = parse_qwen_tool_call(full_response)
         if tool_calls:
             for tool_call in tool_calls:
                 result = execute_tool(tool_call["name"], tool_call["arguments"])
-                yield result
+                yield f"\n\n{result}"
+    
     
     async def call_vllm_engine_2(inputs: dict):
         """vLLM Midm 엔진을 호출하여 비동기 스트리밍을 시작한다."""
@@ -293,21 +287,13 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
 
             if request_output.finished:
                 break
-        
-        # </tool_call> 이후 텍스트가 있다면 전송하기
-        if "</tool_call>" in full_response:
-            tool_call_end = full_response.rfind("</tool_call>") + len("</tool_call>")
-            if tool_call_end < len(full_response):
-                remaining = full_response[tool_call_end:].strip()
-                if remaining:
-                    yield f"\n\n{remaining}"
             
         # tool calling
         tool_calls = parse_midm_tool_call(full_response)
         if tool_calls:
             for tool_call in tool_calls:
                 result = execute_tool(tool_call["name"], tool_call["arguments"])
-                yield result
+                yield f"\n\n{result}"
 
 
     if question_type in ["code", "algorithm", "math"]:        
