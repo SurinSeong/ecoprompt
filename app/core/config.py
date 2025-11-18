@@ -15,15 +15,11 @@ class TotalSettings(BaseSettings):
     max_concurrent_requests: int = int(os.getenv("MAX_CONCURRENT_REQUESTS", "5"))
     request_timeout: int = int(os.getenv("REQUEST_TIMEOUT", "300"))    # 초
 
-    # # samplingparams
-    # temperature: float = 0.3
-    # top_p: float = 0.95
-
-    # # vllm
-    # batch_size: int = 1
-    # block_size: int = 16384
-
-
+    # S3 관련
+    aws_access_key: str = os.getenv("AWS_ACCESS_KEY")
+    aws_secret_key: str = os.getenv("AWS_SECRET_KEY")
+    bucket_name: str = os.getenv("BUCKET_NAME")
+    team_folder_name: str = os.getenv("TEAM_FOLDER_NAME")
 
 
 # wandb 관련

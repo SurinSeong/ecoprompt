@@ -1,8 +1,10 @@
 from datetime import datetime
 from json import JSONDecoder
+from io import BytesIO
 import os
 import json
 import re
+import boto3
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -10,7 +12,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
 from app.services.define_pdf_style import setup_korean_font, set_pdf_style
-
+from app.core.config import base_settings
 
 def create_pdf_from_conversation(
     title: str,
@@ -167,11 +169,13 @@ def create_pdf_document(
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{safe_title}_{timestamp}.pdf"
-        output_path = os.path.abspath(os.path.join(output_dir, filename))
+
+        # 로컬 파일 대신 메모리 버퍼 사용
+        buffer = BytesIO()
 
         # PDF 문서 생성
         doc = SimpleDocTemplate(
-            output_path,
+            buffer,
             pagesize=A4,
             rightMargin=72,
             leftMargin=72,
@@ -273,8 +277,29 @@ def create_pdf_document(
         # PDF 빌드
         doc.build(story)
 
-        print(f"✅ PDF 문서 생성 완료: {output_path}")
-        return output_path
+        # 버터에서 PDF 바이트 꺼내기
+        buffer.seek(0)
+        pdf_bytes = buffer.getvalue()
+
+        # S3 업로드
+        s3 = boto3.client(
+            "s3",
+            aws_access_key_id=base_settings.aws_access_key,
+            aws_secret_access_key=base_settings.aws_secret_key
+        )
+
+        object_key = f"{base_settings.team_folder_name}/llm_results/{filename}"
+
+        # 저장
+        s3.put_object(
+            Bucket=base_settings.bucket_name,
+            Key=object_key,
+            Body=pdf_bytes,
+            ContentType="application/pdf"
+        )
+
+        print(f"✅ PDF 문서 S3 업로드 완료: {filename}")
+        return filename
     
     except Exception as e:
         print(f"❌ PDF 생성 실패: {e}")
@@ -428,8 +453,8 @@ def execute_tool(tool_name: str, arguments: dict) -> str:
             if not content:
                 return "❌ PDF에 포함할 내용이 없습니다."
 
-            pdf_path = create_pdf_document(title, content)
-            return f"✅ PDF 문서가 생성되었습니다!\n📄 제목: {title}\n📁 파일 경로: {os.path.basename(pdf_path)}"
+            filename = create_pdf_document(title, content)
+            return {"type": "FILE", "url": "", "name": filename}
         
         except Exception as e:
             return f"❌ PDF 생성 실패: {str(e)}"
