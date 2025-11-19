@@ -4,6 +4,7 @@ from io import BytesIO
 import json
 import re
 import boto3
+from botocore.client import Config
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -283,8 +284,10 @@ def create_pdf_document(
         # S3 업로드
         s3 = boto3.client(
             "s3",
+            region_name="ap-northeast-2",
             aws_access_key_id=base_settings.aws_access_key,
-            aws_secret_access_key=base_settings.aws_secret_key
+            aws_secret_access_key=base_settings.aws_secret_key,
+            config=Config(signature_version="s3v4")
         )
 
         object_key = f"{base_settings.team_folder_name}/llm_results/{filename}"
@@ -298,7 +301,19 @@ def create_pdf_document(
         )
 
         print(f"✅ PDF 문서 S3 업로드 완료: {filename}")
-        return filename
+
+        url = s3.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={
+                "Bucket": base_settings.bucket_name,
+                "Key": object_key
+            },
+            ExpiresIn=3600
+        )
+
+        print(f"✅ PDF 문서 S3 url 추출 완료: {url}")
+
+        return filename, url
     
     except Exception as e:
         print(f"❌ PDF 생성 실패: {e}")
@@ -452,8 +467,8 @@ def execute_tool(tool_name: str, arguments: dict, msg_uuid: str) -> str:
             if not content:
                 return "❌ PDF에 포함할 내용이 없습니다."
 
-            filename = create_pdf_document(title, content)
-            return {"type": "FILE", "url": "", "originalFileName": filename, "savedFileName": msg_uuid + ".pdf"}
+            filename, url = create_pdf_document(title, content)
+            return {"type": "FILE", "url": url, "originalFileName": filename, "savedFileName": msg_uuid + ".pdf"}
         
         except Exception as e:
             return f"❌ PDF 생성 실패: {str(e)}"
