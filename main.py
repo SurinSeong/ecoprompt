@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 from app.api.v1.routers import api_router
 from app.models.llm_loader import load_tokenizers, llm_tokenizer_1, llm_tokenizer_2, load_llm_engines, llm_engine_1, llm_engine_2
-from app.models.vectordb_loader import load_vectordb, vector_store, load_embedding_model, embedding_model
+# from app.models.vectordb_loader import load_vectordb, vector_store, load_embedding_model, embedding_model
 from app.models.mongodb_loader import load_mongodb, mongo_client
 from app.core.concurrency import get_limiter
 from app.core.config import base_settings
@@ -27,8 +27,8 @@ async def lifespan_manager(app: FastAPI):
     print(f"✅ 요청 타임아웃: {base_settings.request_timeout}초")
 
     load_tokenizers()    # Tokenizer
-    load_embedding_model()
-    load_vectordb()
+    # load_embedding_model()
+    # load_vectordb()
     await load_llm_engines()
     await load_mongodb()    # MongoDB 로드
 
@@ -48,8 +48,8 @@ async def lifespan_manager(app: FastAPI):
         print(f"   - 총 처리 요청: {stats['total']}")
         print(f"   - 현재 활성 요청: {stats['active']}")
 
-    if vector_store is not None:
-        pass
+    # if vector_store is not None:
+    #     pass
 
     if llm_tokenizer_1 is not None:
         pass
@@ -57,8 +57,8 @@ async def lifespan_manager(app: FastAPI):
     if llm_tokenizer_2 is not None:
         pass
 
-    if embedding_model is not None:
-        pass
+    # if embedding_model is not None:
+    #     pass
 
     if mongo_client is not None:
         pass

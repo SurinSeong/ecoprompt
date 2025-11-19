@@ -1,5 +1,5 @@
 from datetime import datetime
-from json import JSONDecoder
+from json import JSONDecoder, JSONDecodeError
 from io import BytesIO
 import json
 import re
@@ -9,7 +9,7 @@ from botocore.client import Config
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Preformatted
 
 from app.services.define_pdf_style import setup_korean_font, set_pdf_style
 from app.core.config import base_settings
@@ -145,11 +145,27 @@ def create_pdf_from_conversation(
         raise
 
 
+# 볼드 치환 로직
+def convert_markdown_bold(text: str) -> str:
+    parts = text.split("**")
+    for i in range(1, len(parts), 2):
+        parts[i] = f"<b>{parts[i]}</b>"
+
+    return "".join(parts)
+
+
+def normalize_code_fences(text: str) -> str:
+    # 어디에 끼어 있든 간에 무조건 앞뒤에 개행을 넣어줌
+    text = re.sub(r'```(\w+)?', r'\n```\1\n', text)
+    # 개행이 너무 많이 생기면 2줄로 압축
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text
+
+
 # pdf 생성 함수
 def create_pdf_document(
     title: str,
     content: str,
-    output_dir: str = "./data"
 ) -> str:
     """
     범용 PDF 문서 생성
@@ -157,18 +173,15 @@ def create_pdf_document(
     Args:
         title: PDF 문서 제목
         content: PDF에 포함할 내용 (마크다운 형식)
-        output_dir: PDF 저장 디렉토리
 
     Returns:
         생성된 PDF 파일의 절대 경로
     """
     try:
-        # 파일명 생성 (제목을 파일명으로 사용, 특수문자 제거)
-        safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "_", "-")).strip()
-        safe_title = safe_title.replace(" ", "_")[:50]    # 최대 50자
+        filename = "test.pdf"
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{safe_title}_{timestamp}.pdf"
+        # 1️⃣ 코드 블록 정규화
+        content = normalize_code_fences(content)
 
         # 로컬 파일 대신 메모리 버퍼 사용
         buffer = BytesIO()
@@ -198,8 +211,9 @@ def create_pdf_document(
 
         # 생성 시간
         creation_time = datetime.now().strftime("%Y년 %m월 %d일 %H:%M:%S")
-        story.append(Paragraph(f"<i>생성 시간: {creation_time}</i>", styles['KoreanBody']))
-        story.append(Spacer(1, 0.4*inch))
+        meta_date = f"<i>생성 시간: {creation_time}</i>"
+        story.append(Paragraph(meta_date, styles['KoreanMeta']))
+        story.append(Spacer(1, 0.25*inch))
 
         # 내용 파싱 (간단한 마크다운 파싱)
         lines = content.split('\n')
@@ -213,7 +227,7 @@ def create_pdf_document(
                 if in_code_block:
                     code_lines.append("")
                 else:
-                    story.append(Spacer(1, 0.1*inch))
+                    story.append(Spacer(1, 0.25*inch))
                 continue
             
             # 코드 블록 처리
@@ -221,16 +235,18 @@ def create_pdf_document(
                 if in_code_block:
                     # 코드 블록 종료
                     code_text = '\n'.join(code_lines)
-                    code_text = code_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                    story.append(Paragraph(f"<font face='Courier'>{code_text}</font>", styles['KoreanCode']))
+                    # code_text = code_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                    story.append(Preformatted(code_text, styles['KoreanCode']))
                     code_lines = []
                     in_code_block = False
+                    
                 else:
                     # 코드 블록 시작
                     in_code_block = True
                 continue
             
             if in_code_block:
+                
                 code_lines.append(line)
                 continue
 
@@ -259,7 +275,7 @@ def create_pdf_document(
             elif line.strip().startswith('- ') or line.strip().startswith('* '):
                 text = line.strip()[2:].strip()
                 # 볼드 처리
-                text = text.replace('**', '<b>').replace('**', '</b>')
+                text = convert_markdown_bold(text)
                 story.append(Paragraph(f"• {text}", styles['KoreanList']))
             
             # 번호 리스트
@@ -269,7 +285,7 @@ def create_pdf_document(
             # 일반 텍스트
             else:
                 # 볼드 처리
-                text = line.replace('**', '<b>').replace('**', '</b>')
+                text = convert_markdown_bold(line)
                 # 이탤릭 처리
                 text = text.replace('*', '<i>').replace('*', '</i>')
                 story.append(Paragraph(text, styles['KoreanBody']))
@@ -343,7 +359,7 @@ def get_tool_definitions():
                     "properties": {
                         "title": {
                             "type": "string",
-                            "description": "PDF 문서의 제목 (예: 'Python 학습 자료', 'MR 템플릿', '대화 기록 요약')"
+                            "description": "PDF 문서의 제목 (예: 'Python 학습 자료', 'Merge Request 템플릿', '대화 기록 요약', '이전 대화 기록')"
                         },
                         "content": {
                             "type": "string",
@@ -351,7 +367,7 @@ def get_tool_definitions():
                                 "PDF에 포함될 전체 내용 (마크다운 형식 권장). "
                                 "**중요 사항**: "
                                 "1. 제목(# 제목)은 포함하지 마세요. ## 섹션 제목부터 시작하세요. "
-                                "2. 사용자가 '대화 기록'을 요청하면 [History]의 내용을 질문에 알맞게 작성하세요. "
+                                "2. 사용자가 '대화 기록'을 요청하면 [History]의 내용을 사용자의 질문에 알맞게 작성하세요. "
                                 "3. 마크다운 형식을 사용하세요: 헤딩(##, ###), 리스트(-, *), 볼드(**텍스트**) 등. "
                                 "4. 구조화된 형태로 작성하세요 (섹션별로 나누기)."
                             )
@@ -383,6 +399,40 @@ def extract_valid_json(text: str) -> str:
             if brace_count == 0 and start_idx != -1:
                 # 완전한 JSON 객체 발견
                 return text[start_idx:i+1]
+
+
+def escape_newlines_in_strings(raw: str) -> str:
+    """
+    JSON 비슷한 문자열에서, 문자열 내부의 생짜 줄바꿈을 \\n으로 바꿔줌.
+    (쌍따옴표 안에서만 적용)
+    """
+    result = []
+    in_string = False
+    escaped = False
+
+    for ch in raw:
+        if ch == '"' and not escaped:
+            in_string = not in_string
+            result.append(ch)
+            continue
+
+        if ch == "\\" and not escaped:
+            escaped = True
+            result.append(ch)
+            continue
+
+        if escaped:
+            escaped = False
+            result.append(ch)
+            continue
+
+        if in_string and ch == "\n":
+            result.append("\\n")
+
+        else:
+            result.append(ch)
+
+    return ''.join(result)
 
 
 def parse_midm_tool_call(text: str) -> list:
@@ -436,23 +486,41 @@ def parse_midm_tool_call(text: str) -> list:
     return tool_calls
 
 
-def parse_qwen_tool_call(text: str) -> list:
-    tool_calls = []
-    json_code_pattern = r'\s*\n(.*?)\n```'
+def parse_qwen_tool_call(text: str) -> list[dict]:
+    tool_calls: list[dict] = []
+
+    # ```json...``` 안의  내용 추출
+    json_code_pattern = r"```json\s*(\{.*?\})\s*```"
     json_matches = re.finditer(json_code_pattern, text, re.DOTALL)
         
     for match in json_matches:
         json_str = match.group(1).strip()
+        tool_call = None
+
+        # 1차: 정상 JSON 시도
         try:
             tool_call = json.loads(json_str)
-            
-            # save_as_pdf 도구인지 확인
-            if tool_call.get("name") == "save_as_pdf":
-                tool_calls.append(tool_call)
-                print(f"✅ Tool 파싱 성공 (코드 블록 형식): save_as_pdf")
+        
+        except JSONDecodeError as e1:
+            print(f"❌ 코드 블록 JSON 파싱 실패 (1차): {e1}")
 
-        except json.JSONDecodeError as e:
-            print(f"❌ 코드 블록 JSON 파싱 실패: {e}")
+            # 2차: 문자열 내부 개행을 \\n 으로 바꿔서 재시도
+            fixed = escape_newlines_in_strings(json_str)
+            try:
+                tool_call = json.loads(fixed)
+                print("✅ 개행 escape 후 JSON 파싱 성공")
+
+            except JSONDecodeError as e2:
+                print(f"❌ 코드 블록 JSON 파싱 실패(2차): {e2}")
+                continue    # 이 블록 포기
+        
+        if not isinstance(tool_call, dict):
+            continue
+                
+        # save_as_pdf 도구인지 확인
+        if tool_call.get("name") == "save_as_pdf":
+            tool_calls.append(tool_call)
+            print(f"✅ Tool 파싱 성공 (코드 블록 형식): save_as_pdf")
     
     return tool_calls
 
@@ -468,7 +536,7 @@ def execute_tool(tool_name: str, arguments: dict, msg_uuid: str) -> str:
                 return "❌ PDF에 포함할 내용이 없습니다."
 
             filename, url = create_pdf_document(title, content)
-            return {"type": "FILE", "url": url, "originalFileName": filename, "savedFileName": msg_uuid + ".pdf"}
+            return {"type": "FILE", "url": url, "originalFileName": filename, "savedFileName": "test.pdf"}
         
         except Exception as e:
             return f"❌ PDF 생성 실패: {str(e)}"

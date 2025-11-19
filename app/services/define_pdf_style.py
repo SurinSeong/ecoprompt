@@ -76,11 +76,12 @@ def set_pdf_style(styles):
 
     styles.add(ParagraphStyle(
         name='KoreanCode',
-        fontName='Courier',
+        fontName=korean_font,
         fontSize=9,
-        leading=12,
-        leftIndent=20,
-        spaceAfter=10,
+        leading=11,
+        leftIndent=15,
+        spaceAfter=6,
+        spaceBefore=6,
         textColor='#2C3E50'
     ))
     
@@ -89,7 +90,17 @@ def set_pdf_style(styles):
         fontName=korean_font,
         fontSize=10,
         leading=14,
-        leftIndent=20,
+        leftIndent=15,
+        spaceAfter=2,
+        spaceBefore=2
+    ))
+
+    styles.add(ParagraphStyle(
+        name="KoreanMeta",
+        fontName=korean_font,
+        fontSize=9,
+        leading=11,
+        textColor="#666666",
         spaceAfter=4
     ))
 
