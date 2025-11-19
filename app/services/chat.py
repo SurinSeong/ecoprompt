@@ -133,8 +133,8 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
         personal_prompt = str(user_info.get("personal_prompt", ""))
 
         system_prompt = (
-            tool_usage_instruction + 
-            "\n\n" + service_prompt + 
+            # tool_usage_instruction + "\n\n" + 
+            service_prompt + 
             "\n---\n[사용자 지침]\n" + personal_prompt + 
             "\n\n[History]\n" + history + 
             # "\n\n[Context]\n" + context +
@@ -172,8 +172,8 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
         personal_prompt = str(user_info.get("personal_prompt", ""))
 
         system_prompt = (
-            tool_usage_instruction +
-            "\n\n" + basic_prompt +
+            # tool_usage_instruction + "\n\n" + 
+            basic_prompt +
             "\n\n" + service_prompt + 
             "\n---\n[사용자 지침]\n" + personal_prompt + 
             "\n\n[History]\n" + history + 
