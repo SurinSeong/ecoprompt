@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from json import JSONDecoder, JSONDecodeError
 from io import BytesIO
 import json
@@ -210,7 +210,8 @@ def create_pdf_document(
         story.append(Spacer(1, 0.3*inch))
 
         # 생성 시간
-        creation_time = datetime.now().strftime("%Y년 %m월 %d일 %H:%M:%S")
+        korean_time = datetime.now() + timedelta(hours=9)
+        creation_time = korean_time.strftime("%Y년 %m월 %d일 %H:%M:%S")
         meta_date = f"<i>생성 시간: {creation_time}</i>"
         story.append(Paragraph(meta_date, styles['KoreanMeta']))
         story.append(Spacer(1, 0.25*inch))

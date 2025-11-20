@@ -206,6 +206,7 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
 
         full_response = ""
         sent_length = 0    # 이미 전송한 길이 추적하기
+        tool_used = False
 
         async for request_output in result_generator:
             for completion in request_output.outputs:
@@ -213,19 +214,23 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
 
                 if new_text:
                     full_response += new_text
+                    # print(full_response)
 
-                    # <tool_call> 태그가 시작되지 않았다면 계속 전송하기
-                    if "<tool_call>" not in full_response[sent_length:]:
+                    # save_as_pdf가 시작되지 않았다면 계속 전송하기
+                    if "save_as_pdf" not in full_response:
                         # 새로 추가된 부분만 전송
                         to_send = full_response[sent_length:]
                         if to_send:
                             yield to_send
                             sent_length = len(full_response)
 
-                    # <tool_call> 태그가 감지되면 그 이전까지만 전송
+                    # save_as_pdf가 감지되면 그 이전까지만 전송
                     else:
+                        # print("[tool 사용 감지]")
+                        # print(full_response)
+                        tool_used = True
                         # <tool_call> 이전까지만 전송
-                        tool_call_start = full_response.find("<tool_call>", sent_length)
+                        tool_call_start = full_response.find("```json", sent_length)
                         if tool_call_start > sent_length:
                             to_send = full_response[sent_length:tool_call_start]
                             if to_send:
@@ -233,7 +238,7 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
 
                             sent_length = tool_call_start
                         
-                        # <tool_call> 부분은 전송하지 않고 넘어간다.
+                        # # <tool_call> 부분은 전송하지 않고 넘어간다.
 
             if request_output.finished:
                 break
@@ -255,6 +260,7 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
 
         full_response = ""
         sent_length = 0    # 이미 전송한 길이 추적하기
+        tool_used = False
 
         async for request_output in result_generator:
             for completion in request_output.outputs:
@@ -263,26 +269,19 @@ def stream_chosen_response_vllm(llm_engine_1, llm_engine_2, tokenizer_1, tokeniz
                 if new_text:
                     full_response += new_text
 
-                    # <tool_call> 태그가 시작되지 않았다면 계속 전송하기
-                    if "<tool_call>" not in full_response[sent_length:]:
-                        # 새로 추가된 부분만 전송
-                        to_send = full_response[sent_length:]
-                        if to_send:
-                            yield to_send
-                            sent_length = len(full_response)
-
-                    # <tool_call> 태그가 감지되면 그 이전까지만 전송
-                    else:
-                        # <tool_call> 이전까지만 전송
-                        tool_call_start = full_response.find("<tool_call>", sent_length)
-                        if tool_call_start > sent_length:
-                            to_send = full_response[sent_length:tool_call_start]
-                            if to_send:
-                                yield to_send
-
-                            sent_length = tool_call_start
-                        
-                        # <tool_call> 부분은 전송하지 않고 넘어간다.
+                    # <tool_call> 태그가 시작되었다면 더이상 전송하지 않기
+                    if tool_used == False:
+                        for char in ["<t", "<to", "<too", "<tool", "<tool_", "<tool_c"]:
+                            if char in new_text:
+                                tool_used = True
+                                sent_length = len(full_response) - len(new_text)    # 전송된 길이
+                                to_send = full_response[sent_length:]
+                                print(to_send)
+                                if to_send not in ["<t", "<to", "<too", "<tool", "<tool_", "<tool_c"]:
+                                    yield to_send
+                                break
+                        else:
+                            yield new_text
 
             if request_output.finished:
                 break
