@@ -1,3 +1,4 @@
+import json
 import asyncio
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -66,7 +67,7 @@ async def chat_vllm(request: ChatRequest, llm_engine_1=Depends(get_llm_engine_1)
                 "personal_prompt": personal_prompt,
                 "question": user_input,
                 "history": chat_history,
-                "context": ""    # 벡터 DB 연결해봐야 함.
+                # "context": ""    # 벡터 DB 연결해봐야 함.
             }
 
             rejected_chain = generate_rejected_response_vllm(llm_engine_1=llm_engine_1, llm_engine_2=llm_engine_2, tokenizer_1=tokenizer_1, tokenizer_2=tokenizer_2, prompt_type="rejected", question_type=question_type)
@@ -76,7 +77,7 @@ async def chat_vllm(request: ChatRequest, llm_engine_1=Depends(get_llm_engine_1)
                 "personal_prompt": personal_prompt,
                 "question": user_input,
                 "history": chat_history,
-                "context": ""    # 벡터 DB 연결해봐야 함.
+                # "context": ""    # 벡터 DB 연결해봐야 함.
             }
             
                     
@@ -100,9 +101,37 @@ async def chat_vllm(request: ChatRequest, llm_engine_1=Depends(get_llm_engine_1)
                                 continue
                             
                             sequence_id += 1
-                            chosen_response += chunk
 
-                            yield f"data: {ChatResponse(sequence_id=sequence_id, token=chunk).model_dump_json()}\n\n"
+                            if isinstance(chunk, dict):
+                                
+                                chunk_type = chunk.get("type", "FILE")
+
+                                if chunk_type == "TOOL_CALL":
+                                    # TOOL_CALL 이벤트
+                                    tool_event = {
+                                        "sequence_id": sequence_id,
+                                        "token": {
+                                            "type": chunk_type,
+                                            "content": chunk.get("content")
+                                        }
+                                    }
+                                    yield "data: " + json.dumps(tool_event, ensure_ascii=False) + "\n\n"
+
+                                elif chunk_type == "FILE":
+                                    file_event = {
+                                        "sequence_id": sequence_id,
+                                        "token": {
+                                            "type": "FILE",
+                                            "url": chunk.get("url"),
+                                            "originalFileName": chunk.get("originalFileName"),
+                                            "savedFileName": chunk.get("savedFileName")
+                                        }
+                                    }
+                                    yield "data: " + json.dumps(file_event, ensure_ascii=False) + "\n\n"
+                                
+                            else:
+                                chosen_response += chunk
+                                yield f"data: {ChatResponse(sequence_id=sequence_id, token=chunk).model_dump_json()}\n\n"
 
                         yield f"data: {ChatResponse(sequence_id=sequence_id+1, token='DONE').model_dump_json()}\n\n"
                         print(f"[CHOSEN]\n{chosen_response}")

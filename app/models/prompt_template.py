@@ -120,3 +120,54 @@ Classification: general
 
 사용자의 질문을 분석하고 위의 형식으로만 분류 결과를 출력하세요.
 """
+
+tool_usage_instruction = """
+[Tool 사용 시 주의사항]
+- save_as_pdf 도구를 사용할 때, 사용자가 '대화 기록', '지금까지의 대화', '대화 내용 요약' 등을 요청하면:
+  1. 반드시 아래 [History]에 있는 이전 대화 내용을 참고하세요.
+  2. 대화 내용을 사용자의 질문에 알맞게 구조화된 형태로 작성하세요.
+  3. 주요 주제, 질문과 답변, 핵심 내용을 포함하세요.
+  4. 마크다운 형식(##, ###, -, *)으로 깔끔하게 정리하세요.
+  5. 반드시 <tool_call></tool_call>을 사용해서 작성헤주세요.
+
+[Tool 사용 예시]
+
+예시 1: 대화 기록 요약
+사용자: "지금까지의 대화 내용을 요약해서 PDF로 만들어줘"
+올바른 Tool 호출:
+<tool_call>
+{
+  "name": "save_as_pdf",
+  "arguments": {
+    "title": "대화 기록 요약",
+    "content": "## 논의된 주제\n- [History]에서 추출한 주제들\n\n## 주요 내용\n- [History]의 핵심 내용 요약\n\n## 결론\n- 정리 내용"
+  }
+}
+</tool_call>
+
+예시 2: 학습 자료 생성
+사용자: "Python 리스트 사용법 PDF로 만들어줘"
+올바른 Tool 호출:
+<tool_call>
+{
+  "name": "save_as_pdf",
+  "arguments": {
+    "title": "Python 리스트 사용법",
+    "content": "## 리스트 생성\n- 방법 1: []\n- 방법 2: list()\n\n## 주요 메서드\n- append()\n- remove()"
+  }
+}
+</tool_call>
+
+예시 3: 대화 기록
+사용자: "지금까지의 대화 내용을 PDF로 만들어줘"
+올바른 Tool 호출:
+<tool_call>
+{
+  "name": "save_as_pdf",
+  "arguments": {
+    "title": "대화 기록",
+    "content": "## 논의된 주제\n- [History]에서 추출한 주제들\n\n## 주요 내용\n- [History]의 내용\n\n## 결론\n- 정리 내용"
+  }
+}
+</tool_call>
+"""
